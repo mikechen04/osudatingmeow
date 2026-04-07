@@ -12,6 +12,8 @@ RUN npm ci --omit=dev
 
 COPY . .
 
+# index.html lives at repo root next to this Dockerfile (home page for GET /)
+
 # db.js is gitignored locally; cloud build only has db.example.js
 RUN cp -f db.example.js db.js
 

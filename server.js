@@ -1,5 +1,6 @@
 require("./load-env");
 
+const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const express = require("express");
@@ -83,14 +84,40 @@ function requireProfile(req, res, next) {
   next();
 }
 
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// home page is root index.html (same folder as Dockerfile) — inject flash for oauth errors etc.
+function sendHomeHtml(req, res) {
+  const htmlPath = path.join(__dirname, "index.html");
+  let html = fs.readFileSync(htmlPath, "utf8");
+  const flash = res.locals.flash;
+  if (flash) {
+    html = html.replace(
+      "<!--FLASH-->",
+      `<div class="flash ${flash.type}">${escapeHtml(flash.message)}</div>`
+    );
+  } else {
+    html = html.replace("<!--FLASH-->", "");
+  }
+  res.type("html").send(html);
+}
+
+app.get("/api/me", (req, res) => {
+  res.json({ loggedIn: !!(req.session && req.session.userId) });
+});
+
 app.get("/", (req, res) => {
-  res.render("pages/index", {
-    title: "find your osu soulmate",
-  });
+  sendHomeHtml(req, res);
 });
 
 app.get("/index.html", (req, res) => {
-  res.redirect(301, "/");
+  sendHomeHtml(req, res);
 });
 
 app.get("/auth/osu", (req, res) => {

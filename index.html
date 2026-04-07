@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>find your osu soulmate · osu! edating</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,700;0,800;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <div class="bg-stars" aria-hidden="true"></div>
+
+    <header class="rr-header">
+      <a class="rr-brand" href="/">osu! edating</a>
+
+      <div class="rr-header-actions">
+        <a class="btn btn-primary btn-tiny" href="/auth/osu">sign in with osu!</a>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <!--FLASH-->
+
+      <section class="rr-hero" aria-labelledby="hero-title">
+        <h1 id="hero-title" class="rr-hero-title">
+          <span class="line1">find your</span>
+          <span class="line2">osu soulmate</span>
+        </h1>
+
+        <p class="rr-hero-sub">
+          a totally serious edating site for osu losers.... who want to find their osu soulmate..... arf meow meow brrr awruff
+        </p>
+
+        <div class="rr-hero-cta">
+          <a class="btn btn-primary" href="/auth/osu">setup your profile</a>
+        </div>
+
+        <p class="rr-hero-note">
+          <b>18+ only.</b> if you’re under 18, please close the tab and dont come back
+        </p>
+      </section>
+
+      <section id="features" class="rr-features">
+        <div class="rr-features-inner">
+          <p class="rr-kicker">how it works</p>
+          <h2 class="rr-section-title">built different</h2>
+
+          <div class="rr-feature-grid">
+            <article class="rr-feature-card">
+              <div class="rr-feature-icon">6</div>
+              <h3>find your perfect duo</h3>
+              <p>filter by something something. browse one profile at a time</p>
+            </article>
+            <article class="rr-feature-card">
+              <div class="rr-feature-icon">7</div>
+              <h3>real time messages</h3>
+              <p>send a message from browse. they'll instantly see the message, and they can choose to respond or to ignore u..</p>
+            </article>
+            <article class="rr-feature-card">
+              <div class="rr-feature-icon">6</div>
+              <h3>uhh idk what to put here</h3>
+              <p>meow meow i love celybi</p>
+            </article>
+            <article class="rr-feature-card">
+              <div class="rr-feature-icon">7</div>
+              <h3>community driven</h3>
+              <p>the site is only as good as the people on it. tell your friends to stop stalling and make a profile</p>
+            </article>
+          </div>
+
+          <div class="rr-meow-cat" aria-hidden="true">
+            <img
+              class="rr-meow-img"
+              src="https://files.catbox.moe/evvmvg.webp"
+              alt=""
+              width="96"
+              height="96"
+            />
+            <p class="rr-meow-bubble">meow meow meow mlep mrrp</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>✿ not affiliated with osu! - 18+ only please ✿</p>
+      <p class="footer-credit">this is a joke site pls dont take it seriously...</p>
+      <p class="footer-madeby">
+        made by <a href="https://osu.ppy.sh/users/9632648" target="_blank" rel="noreferrer">aheriez</a> ·
+        <a href="https://twitter.com/aherieznya" target="_blank" rel="noreferrer">@aherieznya</a>
+      </p>
+    </footer>
+
+    <script>
+      fetch("/api/me", { credentials: "same-origin" })
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (data) {
+          if (!data.loggedIn) return;
+          var nav = document.querySelector(".rr-header-actions");
+          if (nav) {
+            nav.innerHTML =
+              '<a class="linklike" href="/browse">browse</a>' +
+              '<a class="linklike" href="/inbox">inbox</a>' +
+              '<a class="linklike" href="/profile">profile</a>' +
+              '<form action="/logout" method="post" class="inline">' +
+              '<button class="linklike" type="submit">logout</button></form>';
+          }
+          var cta = document.querySelector(".rr-hero-cta");
+          if (cta) {
+            cta.innerHTML = '<a class="btn btn-primary" href="/profile">setup your profile</a>';
+          }
+        })
+        .catch(function () {});
+    </script>
+  </body>
+</html>
