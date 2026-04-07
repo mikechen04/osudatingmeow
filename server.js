@@ -294,17 +294,19 @@ app.get("/api/featured", requireAuth, async (req, res) => {
     const me = res.locals.me;
     const userId = me ? String(me.id) : String(req.session.userId);
     const fdb = rtdb();
+    // admins see everyone on home showcase too (no block filter)
+    const adminSeeAll = me && isAdmin(me);
 
     const [usersSnap, profilesSnap, blocksSnap] = await Promise.all([
       fdb.ref("users").get(),
       fdb.ref("profiles").get(),
-      fdb.ref(`blocks/${userId}`).get(),
+      adminSeeAll ? Promise.resolve(null) : fdb.ref(`blocks/${userId}`).get(),
     ]);
 
     const usersObj = usersSnap.exists() ? usersSnap.val() : {};
     const profilesObj = profilesSnap.exists() ? profilesSnap.val() : {};
-    const blocksObj = blocksSnap.exists() ? blocksSnap.val() : {};
-    const blockedIds = new Set(Object.keys(blocksObj || {}));
+    const blocksObj = blocksSnap && blocksSnap.exists() ? blocksSnap.val() : {};
+    const blockedIds = adminSeeAll ? new Set() : new Set(Object.keys(blocksObj || {}));
 
     let list = [];
     for (const [id, u] of Object.entries(usersObj || {})) {
@@ -313,7 +315,7 @@ app.get("/api/featured", requireAuth, async (req, res) => {
       if (blockedIds.has(String(id))) continue;
       const p = profilesObj ? profilesObj[id] : null;
       if (!p) continue;
-      if (!p.age || !p.bio || !p.gender) continue;
+      if (!adminSeeAll && (!p.age || !p.bio || !p.gender)) continue;
 
       list.push({
         id: String(id),
@@ -1014,7 +1016,8 @@ app.get("/browse", requireAuthOrGuest, async (req, res) => {
   const me = res.locals.me;
   const fdb = rtdb();
   const prefs = res.locals.prefs || null;
-  const isAllAccess = me && String(me.osu_id) === "9632648";
+  // both site admins: no block/pref filter, no 50 cap — see everyone
+  const isAllAccess = me && isAdmin(me);
 
   const [usersSnap, profilesSnap] = await Promise.all([
     fdb.ref("users").get(),
@@ -1082,7 +1085,7 @@ app.get("/browse", requireAuthOrGuest, async (req, res) => {
     }
   }
 
-  // normal users get 50. special user gets everyone.
+  // normal users get 50. admins get everyone.
   const list = isAllAccess ? filtered : filtered.slice(0, 50);
   res.render("pages/browse", { title: "browse", users: list });
 });
