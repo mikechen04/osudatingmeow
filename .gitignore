@@ -1,0 +1,6 @@
+.env
+# local sqlite adapter — use db.example.js as template (db.js not tracked; moving to firebase later)
+db.js
+node_modules
+data/
+

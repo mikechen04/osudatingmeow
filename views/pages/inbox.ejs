@@ -1,0 +1,32 @@
+<%- include("../partials/head", { title }) %>
+
+<section class="card">
+  <p class="est">inbox</p>
+  <h1 class="h1">messages for <em>you</em></h1>
+  <p class="muted" style="margin: 0 0 1rem">people sent these while you were touching grass (or farming pp)</p>
+
+  <% if (!messages || messages.length === 0) { %>
+    <p class="empty">no messages yet. either ur too powerful or nobody has found you. tragic.</p>
+  <% } else { %>
+    <div class="inbox">
+      <% messages.forEach(m => { %>
+        <div class="msg <%= m.read_at ? 'read' : 'unread' %>">
+          <img class="avatar smol" src="<%= m.from_avatar_url %>" alt="" />
+          <div>
+            <div class="msg-top">
+              <div class="msg-from">
+                <b><%= m.from_username %></b>
+                —
+                <a class="softlink" href="https://osu.ppy.sh/users/<%= m.from_osu_id %>" target="_blank" rel="noreferrer">osu!</a>
+              </div>
+              <div class="msg-time"><%= new Date(m.created_at).toLocaleString() %></div>
+            </div>
+            <div class="msg-body"><%= m.body %></div>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+</section>
+
+<%- include("../partials/foot") %>

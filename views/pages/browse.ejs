@@ -1,0 +1,76 @@
+<%- include("../partials/head", { title }) %>
+
+<%
+  const safeJson = JSON.stringify(users || []).replace(/</g, "\\u003c");
+%>
+
+<section class="card compact">
+  <div class="browse-header">
+    <div>
+      <p class="est">browse</p>
+      <h2 class="panel-title" style="margin: 0">potential matches</h2>
+      <p class="muted" style="margin: 0.35rem 0 0">one at a time so u can overthink properly</p>
+    </div>
+    <div class="pager">
+      <button class="btn tiny ghost" type="button" data-browse-prev>prev</button>
+      <div class="pager-text"><span data-browse-idx>1</span>/<span data-browse-total><%= (users || []).length %></span></div>
+      <button class="btn tiny" type="button" data-browse-next>next</button>
+    </div>
+  </div>
+</section>
+
+<section
+  class="card"
+  data-browse-root
+  data-users-json="<%= safeJson %>"
+>
+  <div class="profile-block">
+    <img class="avatar big" data-browse-avatar src="" alt="" />
+    <div>
+      <div class="user-name" data-browse-name>loading...</div>
+      <div class="user-sub" data-browse-tags></div>
+      <a class="softlink" data-browse-osu-link href="#" target="_blank" rel="noreferrer">open osu! profile</a>
+    </div>
+  </div>
+
+  <div class="bio big" data-browse-bio></div>
+
+  <div class="divider">✿ ✿ ✿</div>
+
+  <form class="messagebox" action="/message/send" method="post">
+    <input type="hidden" name="to_user_id" data-browse-to-user-id value="" />
+    <label class="mini-label">send a message</label>
+    <textarea
+      name="body"
+      rows="3"
+      maxlength="600"
+      placeholder="ex: ur profile is cute. wanna duo sometime?"
+      required
+    ></textarea>
+    <button class="btn" type="submit">send</button>
+  </form>
+</section>
+
+<section class="card compact">
+  <p class="est">tips</p>
+  <div class="rules-grid">
+    <div class="rule-box">
+      <h4>tiny rules</h4>
+      <ul>
+        <li>be respectful</li>
+        <li>18+ only (seriously)</li>
+        <li>if they say no, u say ok</li>
+      </ul>
+    </div>
+    <div class="rule-box">
+      <h4>icebreakers</h4>
+      <ul>
+        <li>“dt enjoyer or hidden enjoyer?”</li>
+        <li>“best map you’ve ever played?”</li>
+        <li>“sliderbreak victim?”</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<%- include("../partials/foot") %>
