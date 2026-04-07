@@ -140,6 +140,26 @@ function renderBrowseStack() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  // 18+ gate (only shows once)
+  try {
+    const ageBackdrop = qs("[data-age-backdrop]");
+    const ageAgreeBtn = qs("[data-age-agree]");
+    if (ageBackdrop && ageAgreeBtn) {
+      const ok = localStorage.getItem("age_ok") === "1";
+      if (!ok) {
+        ageBackdrop.hidden = false;
+        document.body.style.overflow = "hidden";
+      }
+      ageAgreeBtn.addEventListener("click", () => {
+        localStorage.setItem("age_ok", "1");
+        ageBackdrop.hidden = true;
+        document.body.style.overflow = "";
+      });
+    }
+  } catch (e) {
+    // ignore
+  }
+
   renderHomeShowcase();
   renderBrowseStack();
 });

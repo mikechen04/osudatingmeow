@@ -29,6 +29,62 @@ const ADMIN_OSU_ID = "9632648";
 const ADMIN_EMERGENCY_CODE = (process.env.ADMIN_EMERGENCY_CODE || "").toString().trim();
 const SLUR_RE = /\bfaggots?\b/i;
 
+function parseCookies(req) {
+  const out = {};
+  const raw = req.headers && req.headers.cookie ? String(req.headers.cookie) : "";
+  if (!raw) return out;
+  const parts = raw.split(";");
+  for (const p of parts) {
+    const idx = p.indexOf("=");
+    if (idx === -1) continue;
+    const k = p.slice(0, idx).trim();
+    const v = p.slice(idx + 1).trim();
+    if (!k) continue;
+    out[k] = decodeURIComponent(v);
+  }
+  return out;
+}
+
+function setCookie(res, name, value, opts) {
+  const o = opts || {};
+  let cookie = `${name}=${encodeURIComponent(value)}`;
+  cookie += `; Path=${o.path || "/"}`;
+  if (o.maxAgeSeconds != null) cookie += `; Max-Age=${o.maxAgeSeconds}`;
+  if (o.httpOnly) cookie += "; HttpOnly";
+  if (o.sameSite) cookie += `; SameSite=${o.sameSite}`;
+  if (o.secure) cookie += "; Secure";
+  res.setHeader("Set-Cookie", cookie);
+}
+
+function clearCookie(res, name) {
+  setCookie(res, name, "", { path: "/", maxAgeSeconds: 0, httpOnly: true, sameSite: "Lax", secure: true });
+}
+
+function makeOwnerToken(secret) {
+  // token lasts 7 days
+  const ts = Date.now();
+  const sig = crypto.createHmac("sha256", secret).update(String(ts)).digest("hex");
+  return `${ts}.${sig}`;
+}
+
+function isValidOwnerToken(secret, token) {
+  const raw = String(token || "");
+  const parts = raw.split(".");
+  if (parts.length !== 2) return false;
+  const ts = parseInt(parts[0], 10);
+  const sig = parts[1];
+  if (!Number.isFinite(ts) || !sig) return false;
+  const ageMs = Date.now() - ts;
+  if (ageMs < 0) return false;
+  if (ageMs > 7 * 24 * 60 * 60 * 1000) return false;
+  const expected = crypto.createHmac("sha256", secret).update(String(ts)).digest("hex");
+  try {
+    return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
+  } catch (e) {
+    return false;
+  }
+}
+
 function hasSlur(text) {
   return SLUR_RE.test(String(text || ""));
 }
@@ -83,6 +139,15 @@ app.use(session(sessionOptions));
 // attach user info for templates
 app.use(async (req, res, next) => {
   try {
+    // owner override cookie (doesnt rely on in-memory sessions)
+    if ((!req.session || !req.session.userId) && ADMIN_EMERGENCY_CODE) {
+      const cookies = parseCookies(req);
+      const token = cookies.admin_override || "";
+      if (token && isValidOwnerToken(ADMIN_EMERGENCY_CODE, token)) {
+        if (req.session) req.session.userId = ADMIN_OSU_ID;
+      }
+    }
+
     res.locals.me = null;
     res.locals.inboxUnread = null;
     res.locals.prefs = null;
@@ -277,8 +342,17 @@ app.post("/emergency-login", (req, res) => {
     return res.redirect("/emergency");
   }
 
-  // log in as owner
-  req.session.userId = ADMIN_OSU_ID;
+  // log in as owner (cookie-based so it works across cloud run instances)
+  if (req.session) req.session.userId = ADMIN_OSU_ID;
+  const token = makeOwnerToken(ADMIN_EMERGENCY_CODE);
+  setCookie(res, "admin_override", token, {
+    path: "/",
+    maxAgeSeconds: 7 * 24 * 60 * 60,
+    httpOnly: true,
+    sameSite: "Lax",
+    secure: true,
+  });
+
   req.session.flash = { type: "ok", message: "owner login ok" };
   return res.redirect("/preferences");
 });
@@ -364,6 +438,8 @@ app.get("/auth/osu/callback", async (req, res) => {
 });
 
 app.post("/logout", (req, res) => {
+  // also clear owner override cookie
+  clearCookie(res, "admin_override");
   req.session.destroy(() => {
     res.redirect("/");
   });
