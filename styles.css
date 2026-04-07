@@ -1,0 +1,302 @@
+/* root-level copy for static hosting (same as public/styles.css) */
+@import url("https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,700;0,800;1,400&display=swap");
+
+:root {
+  --cream: #fff8fb;
+  --pink: #ffb8d9;
+  --lav: #d4c4ff;
+  --mint: #b8f2e6;
+  --bg: #fff5f9;
+  --bg-elev: rgba(255, 255, 255, 0.78);
+  --bg-card: rgba(255, 255, 255, 0.72);
+  --text: #4a3f55;
+  --muted: #7a6b86;
+  --accent: #e85d8c;
+  --accent-hot: #ff6b9d;
+  --accent-dim: rgba(232, 93, 140, 0.28);
+  --border: rgba(255, 255, 255, 0.95);
+  --border-soft: rgba(212, 196, 255, 0.55);
+  --radius: 14px;
+  --radius-lg: 22px;
+  --shadow: 0 16px 48px rgba(180, 120, 200, 0.18);
+  --wrap: min(1120px, 94vw);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Nunito", system-ui, sans-serif;
+  color: var(--text);
+  background: linear-gradient(165deg, #ffe8f3 0%, #e8e4ff 45%, #d5f5ff 100%);
+  line-height: 1.5;
+  text-transform: lowercase;
+}
+
+input,
+textarea,
+select {
+  text-transform: none;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.bg-stars {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.55;
+  background-image: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.55) 0, transparent 3px),
+    radial-gradient(circle at 80% 10%, rgba(255, 255, 255, 0.45) 0, transparent 2px),
+    radial-gradient(circle at 40% 80%, rgba(255, 255, 255, 0.4) 0, transparent 2px),
+    radial-gradient(circle at 90% 70%, rgba(255, 255, 255, 0.5) 0, transparent 3px);
+  background-size: 200px 200px, 200px 200px, 200px 200px, 200px 200px;
+}
+
+.rr-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: var(--wrap);
+  margin: 0 auto;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.85);
+  background: rgba(255, 248, 252, 0.72);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 8px 32px rgba(180, 120, 200, 0.08);
+}
+
+.rr-brand {
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+}
+
+.rr-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.btn {
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  border: none;
+  border-radius: 999px;
+  padding: 0.55rem 1rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: filter 0.15s ease, background 0.15s ease;
+}
+
+.btn-primary {
+  background: linear-gradient(120deg, var(--pink), var(--lav));
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(200, 120, 200, 0.35);
+}
+
+.btn-primary:hover {
+  filter: brightness(1.06);
+}
+
+.btn-outline {
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--text);
+  border: 2px solid var(--border-soft);
+}
+
+.btn-outline:hover {
+  border-color: var(--pink);
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.btn-tiny {
+  padding: 0.45rem 0.75rem;
+  font-size: 0.72rem;
+}
+
+.linklike {
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  cursor: pointer;
+  color: var(--muted);
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+}
+
+.linklike:hover {
+  color: #c44b9e;
+}
+
+.inline {
+  display: inline;
+}
+
+.wrap {
+  position: relative;
+  z-index: 1;
+  max-width: var(--wrap);
+  margin: 0 auto;
+  padding: 1.25rem 1.25rem 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.rr-hero {
+  text-align: center;
+  padding: 2rem 0 2.5rem;
+}
+
+.rr-hero-title {
+  margin: 0;
+  font-size: clamp(2.5rem, 8vw, 4.25rem);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+}
+
+.rr-hero-title .line1 {
+  display: block;
+  color: var(--text);
+}
+
+.rr-hero-title .line2 {
+  display: block;
+  color: #ff5a9a;
+  text-shadow: 0 0 36px rgba(255, 90, 154, 0.25);
+}
+
+.rr-hero-sub {
+  max-width: 560px;
+  margin: 1.25rem auto 0;
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+.rr-hero-cta {
+  margin-top: 1.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+  align-items: center;
+}
+
+.rr-hero-cta .btn {
+  padding: 0.85rem 1.35rem;
+  font-size: 0.8rem;
+  border-radius: 999px;
+}
+
+.rr-hero-note {
+  margin-top: 1.5rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.rr-features {
+  padding: 2rem 0 3rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.65);
+}
+
+.rr-features-inner {
+  max-width: var(--wrap);
+  margin: 0 auto;
+  padding: 0 1.25rem;
+}
+
+.rr-kicker {
+  font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #c44b9e;
+  letter-spacing: 0.02em;
+  margin: 0 0 0.35rem;
+}
+
+.rr-section-title {
+  margin: 0 0 1.5rem;
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.rr-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+.rr-feature-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.1rem;
+  min-height: 140px;
+  box-shadow: var(--shadow);
+}
+
+.rr-feature-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(255, 184, 217, 0.45);
+  border: 1px solid rgba(212, 196, 255, 0.75);
+  color: #c44b9e;
+  display: grid;
+  place-items: center;
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
+  font-weight: 800;
+}
+
+.rr-feature-card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1.25;
+  color: var(--text);
+}
+
+.rr-feature-card p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+@media (max-width: 900px) {
+  .rr-feature-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .rr-feature-grid {
+    grid-template-columns: 1fr;
