@@ -42,6 +42,14 @@
 
   <div class="divider">✿</div>
 
+  <% if (me) { %>
+    <form class="sticky-actions" action="/block" method="post">
+      <input type="hidden" name="block_user_id" data-browse-block-user-id value="" />
+      <input type="hidden" name="redirect_to" value="/browse" />
+      <button class="btn tiny danger" type="submit">block</button>
+    </form>
+  <% } %>
+
   <% if (me && me.age && me.bio && me.gender) { %>
     <form class="messagebox" action="/message/send" method="post">
       <input type="hidden" name="to_user_id" data-browse-to-user-id value="" />

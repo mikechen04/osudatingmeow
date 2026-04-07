@@ -2,47 +2,27 @@
 
 <section class="card">
   <p class="est">inbox</p>
-  <p class="muted" style="margin: 0 0 1rem">people sent these love letters to you</p>
+  <p class="muted" style="margin: 0 0 1rem">convos (like discord dms)</p>
 
-  <% if (!messages || messages.length === 0) { %>
-    <p class="empty">no messages yet. ur a chud</p>
+  <% if (!convos || convos.length === 0) { %>
+    <p class="empty">no convos yet. tragic</p>
   <% } else { %>
     <div class="inbox">
-      <% messages.forEach(m => { %>
-        <%
-          const outgoing = m && m.direction === 'out';
-          const whoName = outgoing ? (m.to_username || 'unknown') : (m.from_username || 'unknown');
-          const whoOsu = outgoing ? (m.to_osu_id || m.to_user_id) : m.from_osu_id;
-          const whoAvatar = outgoing ? (m.to_avatar_url || 'https://files.catbox.moe/evvmvg.webp') : (m.from_avatar_url || 'https://files.catbox.moe/evvmvg.webp');
-          const replyTo = outgoing ? m.to_user_id : m.from_user_id;
-        %>
-        <div class="msg <%= m.read_at ? 'read' : 'unread' %>">
-          <img
-            class="avatar smol"
-            src="<%= whoAvatar %>"
-            alt=""
-          />
+      <% convos.forEach(c => { %>
+        <a class="msg <%= c.unread > 0 ? 'unread' : 'read' %>" href="/inbox/<%= c.otherId %>?view=both" style="text-decoration: none">
+          <img class="avatar smol" src="<%= c.avatar_url || 'https://files.catbox.moe/evvmvg.webp' %>" alt="" />
           <div>
             <div class="msg-top">
               <div class="msg-from">
-                <%= outgoing ? 'to' : 'from' %>
-                <b><%= whoName %></b>
+                <b><%= c.name %></b>
                 —
-                <a class="softlink" href="https://osu.ppy.sh/users/<%= whoOsu %>" target="_blank" rel="noreferrer">osu!</a>
+                <span class="muted"><%= c.unread > 0 ? (c.unread + ' unread') : 'no unread' %></span>
               </div>
-              <div class="msg-time"><%= new Date(m.created_at).toLocaleString() %></div>
+              <div class="msg-time"><%= new Date(c.last_at).toLocaleString() %></div>
             </div>
-            <div class="msg-body"><%= m.body %></div>
-
-            <form class="replybox" action="/message/send" method="post" style="margin-top: 0.65rem">
-              <input type="hidden" name="to_user_id" value="<%= replyTo %>" />
-              <input type="hidden" name="redirect_to" value="/inbox" />
-              <label class="mini-label">reply</label>
-              <textarea name="body" rows="2" maxlength="600" placeholder="type a reply..." required></textarea>
-              <button class="btn tiny" type="submit">send</button>
-            </form>
+            <div class="msg-body"><%= c.last_body %></div>
           </div>
-        </div>
+        </a>
       <% }) %>
     </div>
   <% } %>

@@ -40,6 +40,7 @@ function renderBrowseStack() {
   const bioEl = qs("[data-browse-bio]");
   const osuLinkEl = qs("[data-browse-osu-link]");
   const toUserIdEl = qs("[data-browse-to-user-id]");
+  const blockUserIdEl = qs("[data-browse-block-user-id]");
 
   let idx = 0;
 
@@ -54,6 +55,7 @@ function renderBrowseStack() {
       setText(bioEl, "tell ur friends to make a profile so u have ppl to browse");
       if (osuLinkEl) osuLinkEl.href = "#";
       if (toUserIdEl) toUserIdEl.value = "";
+      if (blockUserIdEl) blockUserIdEl.value = "";
       if (prevBtn) prevBtn.disabled = true;
       if (nextBtn) nextBtn.disabled = true;
       return;
@@ -77,6 +79,7 @@ function renderBrowseStack() {
     setText(bioEl, u.bio);
     if (osuLinkEl) osuLinkEl.href = `https://osu.ppy.sh/users/${u.osu_id}`;
     if (toUserIdEl) toUserIdEl.value = u.id;
+    if (blockUserIdEl) blockUserIdEl.value = u.id;
 
     if (prevBtn) prevBtn.disabled = idx === 0;
     if (nextBtn) nextBtn.disabled = idx === users.length - 1;

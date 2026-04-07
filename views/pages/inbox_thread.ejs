@@ -1,0 +1,67 @@
+<%- include("../partials/head", { title }) %>
+
+<section class="card">
+  <p class="est">inbox</p>
+
+  <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; justify-content: space-between">
+    <div>
+      <div class="panel-title" style="margin: 0"><%= other && other.name ? other.name : 'conversation' %></div>
+      <% if (other && other.osu_id) { %>
+        <a class="softlink" href="https://osu.ppy.sh/users/<%= other.osu_id %>" target="_blank" rel="noreferrer">open osu! profile</a>
+      <% } %>
+    </div>
+
+    <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center">
+      <a class="btn tiny <%= view === 'both' ? '' : 'ghost' %>" href="/inbox/<%= otherId %>?view=both">both</a>
+      <a class="btn tiny <%= view === 'received' ? '' : 'ghost' %>" href="/inbox/<%= otherId %>?view=received">received</a>
+      <a class="btn tiny <%= view === 'sent' ? '' : 'ghost' %>" href="/inbox/<%= otherId %>?view=sent">sent</a>
+      <a class="btn tiny ghost" href="/inbox">back</a>
+    </div>
+  </div>
+
+  <div class="divider">✿</div>
+
+  <% if (!messages || messages.length === 0) { %>
+    <p class="empty">no messages in this convo</p>
+  <% } else { %>
+    <div class="inbox">
+      <% messages.forEach(m => { %>
+        <%
+          const outgoing = m && m.direction === 'out';
+        %>
+        <div class="msg <%= outgoing ? 'read' : (m.read_at ? 'read' : 'unread') %>">
+          <img class="avatar smol" src="<%= outgoing ? (me.avatar_url || 'https://files.catbox.moe/evvmvg.webp') : (other.avatar_url || 'https://files.catbox.moe/evvmvg.webp') %>" alt="" />
+          <div>
+            <div class="msg-top">
+              <div class="msg-from">
+                <b><%= outgoing ? 'you' : (other && other.name ? other.name : 'them') %></b>
+              </div>
+              <div class="msg-time"><%= new Date(m.created_at).toLocaleString() %></div>
+            </div>
+            <div class="msg-body"><%= m.body %></div>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+
+  <div class="divider">✿</div>
+
+  <% if (me && me.age && me.bio && me.gender) { %>
+    <form class="messagebox" action="/message/send" method="post">
+      <input type="hidden" name="to_user_id" value="<%= otherId %>" />
+      <input type="hidden" name="redirect_to" value="/inbox/<%= otherId %>?view=<%= view %>" />
+      <label class="mini-label">reply</label>
+      <textarea name="body" rows="3" maxlength="600" placeholder="type a reply..." required></textarea>
+      <button class="btn" type="submit">send</button>
+    </form>
+  <% } else { %>
+    <div class="notice">
+      <div class="notice-title">u can browse, but u cant message yet</div>
+      <div class="notice-text">finish ur profile first (age + gender + description)</div>
+    </div>
+  <% } %>
+</section>
+
+<%- include("../partials/foot") %>
+

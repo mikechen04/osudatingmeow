@@ -185,6 +185,16 @@ a {
   background: rgba(255, 120, 150, 0.25);
 }
 
+.sticky-actions {
+  position: sticky;
+  bottom: 0.75rem;
+  display: flex;
+  justify-content: flex-end;
+  margin: 0.75rem 0;
+  padding: 0.35rem 0;
+  background: linear-gradient(to top, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0));
+}
+
 .inline {
   display: inline;
 }

@@ -116,6 +116,12 @@ function requireAuth(req, res, next) {
   next();
 }
 
+function requireAuthOrGuest(req, res, next) {
+  if (req.session && req.session.userId) return next();
+  if (req.session && req.session.guestOk) return next();
+  return res.redirect("/enter");
+}
+
 function requireProfile(req, res, next) {
   const me = res.locals.me;
   if (!me) return res.redirect("/");
@@ -163,6 +169,23 @@ app.get("/", (req, res) => {
 
 app.get("/index.html", (req, res) => {
   sendHomeHtml(req, res);
+});
+
+app.get("/enter", (req, res) => {
+  // already in? go browse
+  if (req.session && (req.session.userId || req.session.guestOk)) return res.redirect("/browse");
+  res.render("pages/enter", { title: "enter" });
+});
+
+app.post("/enter", (req, res) => {
+  const code = (req.body.code || "").toString().trim();
+  if (code === "taikichan") {
+    req.session.guestOk = true;
+    req.session.flash = { type: "ok", message: "ok u can browse" };
+    return res.redirect("/browse");
+  }
+  req.session.flash = { type: "error", message: "wrong code" };
+  return res.redirect("/enter");
 });
 
 app.get("/auth/osu", (req, res) => {
@@ -237,6 +260,38 @@ app.post("/logout", (req, res) => {
   req.session.destroy(() => {
     res.redirect("/");
   });
+});
+
+// quick way to clear guest access if needed
+app.post("/guest/exit", (req, res) => {
+  if (req.session) req.session.guestOk = null;
+  res.redirect("/");
+});
+
+app.post("/block", requireAuth, async (req, res) => {
+  const me = res.locals.me;
+  const blockUserId = (req.body.block_user_id || "").toString().trim();
+  const redirectTo = (req.body.redirect_to || "").toString().trim();
+
+  if (!me) return res.redirect("/");
+  if (!blockUserId) {
+    req.session.flash = { type: "error", message: "nothing to block" };
+    return res.redirect(redirectTo || "/browse");
+  }
+  if (String(blockUserId) === String(me.id)) {
+    req.session.flash = { type: "error", message: "u cant block urself" };
+    return res.redirect(redirectTo || "/browse");
+  }
+
+  try {
+    await rtdb().ref(`blocks/${String(me.id)}/${String(blockUserId)}`).set(true);
+    req.session.flash = { type: "ok", message: "blocked" };
+    return res.redirect(redirectTo || "/browse");
+  } catch (e) {
+    console.error(e);
+    req.session.flash = { type: "error", message: "failed to block" };
+    return res.redirect(redirectTo || "/browse");
+  }
 });
 
 app.get("/preferences", requireAuth, (req, res) => {
@@ -358,7 +413,7 @@ app.post("/profile", requireAuth, async (req, res) => {
   }
 });
 
-app.get("/browse", requireAuth, async (req, res) => {
+app.get("/browse", requireAuthOrGuest, async (req, res) => {
   const me = res.locals.me;
   const fdb = rtdb();
   const prefs = res.locals.prefs || null;
@@ -374,7 +429,7 @@ app.get("/browse", requireAuth, async (req, res) => {
   const out = [];
   for (const [id, u] of Object.entries(usersObj || {})) {
     if (!u) continue;
-    if (String(id) === String(me.id)) continue;
+    if (me && String(id) === String(me.id)) continue;
     const p = profilesObj ? profilesObj[id] : null;
     if (!p) continue;
 
@@ -391,10 +446,19 @@ app.get("/browse", requireAuth, async (req, res) => {
     });
   }
 
+  // remove blocked users
+  let baseList = out;
+  if (me) {
+    const blocksSnap = await fdb.ref(`blocks/${String(me.id)}`).get();
+    const blocksObj = blocksSnap.exists() ? blocksSnap.val() : {};
+    const blockedIds = new Set(Object.keys(blocksObj || {}));
+    baseList = out.filter(u => !blockedIds.has(String(u.id)));
+  }
+
   // apply your preferences if set
-  let filtered = out;
+  let filtered = baseList;
   if (prefs) {
-    filtered = out.filter(u => {
+    filtered = baseList.filter(u => {
       if (!u) return false;
       if (!u.age || !u.gender) return false;
       if (prefs.min_age !== null && typeof prefs.min_age === "number" && u.age < prefs.min_age) return false;
@@ -478,6 +542,20 @@ app.post("/message/send", requireAuth, requireProfile, async (req, res) => {
     return res.redirect("/browse");
   }
 
+  // block checks
+  const [iBlockSnap, theyBlockSnap] = await Promise.all([
+    fdb.ref(`blocks/${String(me.id)}/${String(toUserId)}`).get(),
+    fdb.ref(`blocks/${String(toUserId)}/${String(me.id)}`).get(),
+  ]);
+  if (iBlockSnap.exists()) {
+    req.session.flash = { type: "error", message: "u blocked them" };
+    return res.redirect(redirectTo || "/browse");
+  }
+  if (theyBlockSnap.exists()) {
+    req.session.flash = { type: "error", message: "they blocked u" };
+    return res.redirect(redirectTo || "/browse");
+  }
+
   const now = Date.now();
   // store in their inbox (incoming)
   const msgRef = fdb.ref(`inbox/${toUserId}`).push();
@@ -522,17 +600,112 @@ app.get("/inbox", requireAuth, requireProfile, async (req, res) => {
   const userId = String(me.id);
   const fdb = rtdb();
 
-  const snap = await fdb.ref(`inbox/${userId}`).get();
+  const [snap, blocksSnap] = await Promise.all([
+    fdb.ref(`inbox/${userId}`).get(),
+    fdb.ref(`blocks/${userId}`).get(),
+  ]);
+
   const obj = snap.exists() ? snap.val() : {};
+  const blocksObj = blocksSnap.exists() ? blocksSnap.val() : {};
+  const blockedIds = new Set(Object.keys(blocksObj || {}));
 
   const messages = Object.values(obj || {});
-  messages.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
 
-  // mark unread as read
+  // group into conversations by other user id
+  const convoMap = {};
+  for (const m of messages) {
+    if (!m) continue;
+    const dir = m.direction || (m.to_user_id ? "in" : "in");
+    const otherId = dir === "out" ? String(m.to_user_id || "") : String(m.from_user_id || "");
+    if (!otherId) continue;
+    if (blockedIds.has(otherId)) continue;
+
+    if (!convoMap[otherId]) {
+      convoMap[otherId] = {
+        otherId,
+        name: dir === "out" ? (m.to_username || "unknown") : (m.from_username || "unknown"),
+        avatar_url: dir === "out" ? (m.to_avatar_url || null) : (m.from_avatar_url || null),
+        last_body: "",
+        last_at: 0,
+        unread: 0,
+      };
+    }
+
+    const c = convoMap[otherId];
+    const at = m.created_at || 0;
+    if (at >= (c.last_at || 0)) {
+      c.last_at = at;
+      c.last_body = m.body || "";
+      // keep name/avatar fresh too
+      c.name = dir === "out" ? (m.to_username || c.name) : (m.from_username || c.name);
+      c.avatar_url = dir === "out" ? (m.to_avatar_url || c.avatar_url) : (m.from_avatar_url || c.avatar_url);
+    }
+
+    // only count unread incoming for this convo
+    if (dir !== "out" && !m.read_at) c.unread += 1;
+  }
+
+  const convos = Object.values(convoMap);
+  convos.sort((a, b) => (b.last_at || 0) - (a.last_at || 0));
+
+  res.render("pages/inbox", { title: "inbox", convos });
+});
+
+app.get("/inbox/:otherId", requireAuth, requireProfile, async (req, res) => {
+  const me = res.locals.me;
+  const userId = String(me.id);
+  const otherId = String(req.params.otherId || "").trim();
+  const viewRaw = String(req.query.view || "both");
+  const view = ["both", "received", "sent"].includes(viewRaw) ? viewRaw : "both";
+  const fdb = rtdb();
+
+  // blocked?
+  const blockSnap = await fdb.ref(`blocks/${userId}/${otherId}`).get();
+  if (blockSnap.exists()) {
+    req.session.flash = { type: "warn", message: "u blocked them" };
+    return res.redirect("/inbox");
+  }
+
+  const snap = await fdb.ref(`inbox/${userId}`).get();
+  const obj = snap.exists() ? snap.val() : {};
+  const all = Object.values(obj || {});
+
+  // filter just this thread
+  let thread = all.filter(m => {
+    if (!m) return false;
+    const dir = m.direction || (m.to_user_id ? "in" : "in");
+    const oid = dir === "out" ? String(m.to_user_id || "") : String(m.from_user_id || "");
+    return String(oid) === String(otherId);
+  });
+
+  // sort oldest -> newest like a chat
+  thread.sort((a, b) => (a.created_at || 0) - (b.created_at || 0));
+
+  // apply view filter
+  if (view === "received") thread = thread.filter(m => (m.direction || "in") !== "out");
+  if (view === "sent") thread = thread.filter(m => (m.direction || "in") === "out");
+
+  // figure out other user info from any message we have
+  let other = { name: "unknown", osu_id: null, avatar_url: null };
+  for (const m of all) {
+    if (!m) continue;
+    if (String(m.from_user_id) === String(otherId)) {
+      other = { name: m.from_username || "unknown", osu_id: m.from_osu_id || null, avatar_url: m.from_avatar_url || null };
+      break;
+    }
+    if (String(m.to_user_id) === String(otherId)) {
+      other = { name: m.to_username || "unknown", osu_id: m.to_osu_id || null, avatar_url: m.to_avatar_url || null };
+    }
+  }
+
+  // mark unread incoming from them as read (only in this thread)
   const now = Date.now();
   const updates = {};
-  for (const m of messages) {
-    if (m && !m.read_at && m.id) {
+  for (const m of all) {
+    if (!m || !m.id) continue;
+    const dir = m.direction || "in";
+    const oid = dir === "out" ? String(m.to_user_id || "") : String(m.from_user_id || "");
+    if (dir !== "out" && String(oid) === String(otherId) && !m.read_at) {
       updates[`inbox/${userId}/${m.id}/read_at`] = now;
     }
   }
@@ -540,7 +713,7 @@ app.get("/inbox", requireAuth, requireProfile, async (req, res) => {
     await fdb.ref().update(updates);
   }
 
-  res.render("pages/inbox", { title: "inbox", messages: messages.slice(0, 50) });
+  res.render("pages/inbox_thread", { title: "inbox", me, otherId, other, messages: thread, view });
 });
 
 app.listen(PORT, "0.0.0.0", () => {
