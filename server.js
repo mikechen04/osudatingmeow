@@ -806,6 +806,15 @@ app.post("/admin/wipe-user", requireAuth, async (req, res) => {
   try {
     const fdb = rtdb();
 
+    async function chunkedUpdate(updates, chunkSize) {
+      const keys = Object.keys(updates || {});
+      for (let i = 0; i < keys.length; i += chunkSize) {
+        const chunk = {};
+        for (const k of keys.slice(i, i + chunkSize)) chunk[k] = updates[k];
+        await fdb.ref().update(chunk);
+      }
+    }
+
     const usersSnap = await fdb.ref("users").get();
     const usersObj = usersSnap.exists() ? usersSnap.val() : {};
 
@@ -854,6 +863,7 @@ app.post("/admin/wipe-user", requireAuth, async (req, res) => {
     // remove any messages involving them from everyone inbox
     const inboxSnap = await fdb.ref("inbox").get();
     const inboxObj = inboxSnap.exists() ? inboxSnap.val() : {};
+    let inboxDeletes = 0;
     for (const [toId, msgs] of Object.entries(inboxObj || {})) {
       if (!msgs) continue;
       for (const [msgId, msg] of Object.entries(msgs || {})) {
@@ -862,6 +872,7 @@ app.post("/admin/wipe-user", requireAuth, async (req, res) => {
         const toUserId = msg.to_user_id ? String(msg.to_user_id) : "";
         if (fromId === String(targetId) || toUserId === String(targetId)) {
           updates[`inbox/${toId}/${msgId}`] = null;
+          inboxDeletes += 1;
         }
       }
     }
@@ -876,12 +887,13 @@ app.post("/admin/wipe-user", requireAuth, async (req, res) => {
       }
     }
 
-    await fdb.ref().update(updates);
+    // do updates in batches so firebase doesnt choke on huge payloads
+    await chunkedUpdate(updates, 400);
 
-    req.session.flash = { type: "ok", message: `wiped user ${targetId}` };
+    req.session.flash = { type: "ok", message: `wiped user ${targetId} (msgs removed: ${inboxDeletes})` };
     return res.redirect("/preferences");
   } catch (e) {
-    console.error(e);
+    console.error("wipe user failed", e);
     req.session.flash = { type: "error", message: "failed to wipe user" };
     return res.redirect("/preferences");
   }
