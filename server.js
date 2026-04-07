@@ -81,6 +81,7 @@ app.use(async (req, res, next) => {
           username: user.username,
           avatar_url: user.avatar_url || null,
           country_code: user.country_code || null,
+          global_rank: user.global_rank || null,
           age: profile ? profile.age : null,
           bio: profile ? profile.bio : null,
           gender: profile ? profile.gender : null,
@@ -239,6 +240,7 @@ app.get("/auth/osu/callback", async (req, res) => {
       username: me.username,
       avatar_url: me.avatar_url || null,
       country_code: me.country_code || null,
+      global_rank: (me && me.statistics && me.statistics.global_rank) ? me.statistics.global_rank : null,
       updated_at: now,
       created_at: now,
     });
@@ -439,6 +441,7 @@ app.get("/browse", requireAuthOrGuest, async (req, res) => {
       username: u.username,
       avatar_url: u.avatar_url || null,
       country_code: u.country_code || null,
+      global_rank: u.global_rank || null,
       age: p.age,
       bio: p.bio,
       gender: p.gender || null,

@@ -67,7 +67,8 @@ function renderBrowseStack() {
     const u = users[idx];
 
     setText(idxEl, idx + 1);
-    setText(nameEl, u.username);
+    const rankText = u.global_rank ? ` (#${u.global_rank})` : "";
+    setText(nameEl, `${u.username}${rankText}`);
     if (avatarEl) avatarEl.src = u.avatar_url || AVATAR_PLACEHOLDER;
 
     const pieces = [];
