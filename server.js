@@ -15,6 +15,7 @@ try {
 
 const { osuAuthorizeUrl, osuExchangeCodeForToken, osuGetMe } = require("./osu");
 const { rtdb } = require("./firebase");
+const OSU_ID_BLACKLIST = require("./blacklist");
 
 const app = express();
 
@@ -183,6 +184,13 @@ app.get("/auth/osu/callback", async (req, res) => {
 
     const token = await osuExchangeCodeForToken(code);
     const me = await osuGetMe(token.access_token);
+
+    // block blacklisted osu ids (ex: minors)
+    if (OSU_ID_BLACKLIST.has(String(me.id))) {
+      req.session.userId = null;
+      req.session.flash = { type: "error", message: "u are blocked from using this site" };
+      return res.redirect("/");
+    }
 
     // store user in rtdb using osu id as the key (stable on cloud run)
     const userId = String(me.id);
