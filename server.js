@@ -691,7 +691,7 @@ app.post("/message/send", requireAuth, requireProfile, async (req, res) => {
   const me = res.locals.me;
   const toUserId = (req.body.to_user_id || "").toString().trim();
   const bodyRaw = (req.body.body || "").toString().trim();
-  const body = bodyRaw.slice(0, 600);
+  const body = bodyRaw.slice(0, 500);
   const redirectTo = (req.body.redirect_to || "").toString().trim();
 
   if (!toUserId) {
