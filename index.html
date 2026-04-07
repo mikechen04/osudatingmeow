@@ -17,10 +17,10 @@
     <div class="bg-stars" aria-hidden="true"></div>
 
     <header class="rr-header">
-      <a class="rr-brand" href="/">osu! edating</a>
+      <a class="rr-brand" href="https://osudatingmeow-git-57346811168.us-east1.run.app/">osu! edating</a>
 
       <div class="rr-header-actions">
-        <a class="btn btn-primary btn-tiny" href="/auth/osu">sign in with osu!</a>
+        <a class="btn btn-primary btn-tiny" href="https://osudatingmeow-git-57346811168.us-east1.run.app/auth/osu">sign in with osu!</a>
       </div>
     </header>
 
@@ -38,7 +38,7 @@
         </p>
 
         <div class="rr-hero-cta">
-          <a class="btn btn-primary" href="/auth/osu">setup your profile</a>
+          <a class="btn btn-primary" href="https://osudatingmeow-git-57346811168.us-east1.run.app/auth/osu">setup your profile</a>
         </div>
 
         <p class="rr-hero-note">
@@ -75,13 +75,15 @@
           </div>
 
           <div class="rr-meow-cat" aria-hidden="true">
-            <img
-              class="rr-meow-img"
-              src="https://files.catbox.moe/evvmvg.webp"
-              alt=""
-              width="96"
-              height="96"
-            />
+            <a href="https://osu.ppy.sh/users/12742221" target="_blank" rel="noreferrer">
+              <img
+                class="rr-meow-img"
+                src="https://files.catbox.moe/evvmvg.webp"
+                alt=""
+                width="96"
+                height="96"
+              />
+            </a>
             <p class="rr-meow-bubble">meow meow meow mlep mrrp</p>
           </div>
         </div>
@@ -97,28 +99,6 @@
       </p>
     </footer>
 
-    <script>
-      fetch("/api/me", { credentials: "same-origin" })
-        .then(function (r) {
-          return r.json();
-        })
-        .then(function (data) {
-          if (!data.loggedIn) return;
-          var nav = document.querySelector(".rr-header-actions");
-          if (nav) {
-            nav.innerHTML =
-              '<a class="linklike" href="/browse">browse</a>' +
-              '<a class="linklike" href="/inbox">inbox</a>' +
-              '<a class="linklike" href="/profile">profile</a>' +
-              '<form action="/logout" method="post" class="inline">' +
-              '<button class="linklike" type="submit">logout</button></form>';
-          }
-          var cta = document.querySelector(".rr-hero-cta");
-          if (cta) {
-            cta.innerHTML = '<a class="btn btn-primary" href="/profile">setup your profile</a>';
-          }
-        })
-        .catch(function () {});
-    </script>
+    <!-- this landing page is static (github pages/custom domain), so server-only links must point at cloud run -->
   </body>
 </html>
