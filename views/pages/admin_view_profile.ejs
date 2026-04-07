@@ -1,6 +1,6 @@
 <%- include("../partials/head", { title }) %>
 
-<section class="card">
+<section class="card<%= user && cute_tint ? " profile-card-cute" : "" %>">
   <p class="est">admin</p>
   <h1 class="h1">profile lookup</h1>
 
@@ -53,8 +53,11 @@
 
           let genderLine = "any gender";
           if (genders.length) genderLine = genders.join(", ");
+
+          let rankLine = "any rank";
+          if (typeof prefs.rank_max === "number") rankLine = `#${prefs.rank_max}+`;
         %>
-        <p><%= ageLine %> · <%= genderLine %></p>
+        <p><%= ageLine %> · <%= genderLine %> · <%= rankLine %></p>
       </div>
     <% } %>
   <% } %>

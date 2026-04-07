@@ -1,6 +1,6 @@
 <%- include("../partials/head", { title }) %>
 
-<section class="card">
+<section class="card<%= me && me.cute_tint ? " profile-card-cute" : "" %>">
   <p class="est">profile</p>
   <h1 class="h1">this is what ppl see</h1>
 
@@ -18,6 +18,9 @@
           <%= me.display_name || me.username %>
           <% if (me.global_rank) { %>
             <span class="muted">#<%= me.global_rank %></span>
+          <% } %>
+          <% if (typeof me.badge_count === "number") { %>
+            <span class="muted">· <%= me.badge_count %> badges</span>
           <% } %>
         </div>
         <% if (me.display_name && me.display_name !== me.username) { %>
@@ -61,8 +64,11 @@
 
         let genderLine = "any gender";
         if (genders.length) genderLine = genders.join(", ");
+
+        let rankLine = "any rank";
+        if (p && typeof p.rank_max === "number") rankLine = `#${p.rank_max}+`;
       %>
-      <p><%= ageLine %> · <%= genderLine %></p>
+      <p><%= ageLine %> · <%= genderLine %> · <%= rankLine %></p>
     </div>
 
     <div class="divider">✿</div>

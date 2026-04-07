@@ -17,6 +17,24 @@ function setHtml(el, html) {
   el.innerHTML = html || "";
 }
 
+// what the browsed user saved in preferences (shown under their bio)
+function formatTheirPrefs(tp) {
+  if (!tp) return "no preferences saved yet";
+
+  let ageLine = "any age";
+  if (tp.min_age != null && tp.max_age != null) ageLine = `ages ${tp.min_age}–${tp.max_age}`;
+  else if (tp.min_age != null) ageLine = `ages ${tp.min_age}+`;
+  else if (tp.max_age != null) ageLine = `up to age ${tp.max_age}`;
+
+  let genderLine = "any gender";
+  if (tp.genders && tp.genders.length) genderLine = tp.genders.join(", ");
+
+  let rankLine = "any rank";
+  if (tp.rank_max != null && typeof tp.rank_max === "number") rankLine = `#${tp.rank_max}+`;
+
+  return `${ageLine} · ${genderLine} · ${rankLine}`;
+}
+
 async function renderHomeShowcase() {
   const wrap = qs("[data-home-showcase]");
   const grid = qs("[data-home-showcase-grid]");
@@ -35,18 +53,20 @@ async function renderHomeShowcase() {
     const cards = users
       .map(u => {
         const rank = u.global_rank ? ` #${u.global_rank}` : "";
+        const badges = typeof u.badge_count === "number" ? ` · ${u.badge_count} badges` : "";
         const tags = [
           u.age ? `${u.age}+` : "",
           u.gender ? u.gender : "",
           u.country_code ? u.country_code : "",
+          typeof u.badge_count === "number" ? `${u.badge_count} badges` : "",
         ]
           .filter(Boolean)
           .join(" · ");
 
         return `
-          <a class="showcase-card" href="/browse" title="go browse">
+          <a class="showcase-card${u.cute_tint ? " showcase-card-cute" : ""}" href="/browse" title="go browse">
             <img class="avatar smol" src="${u.avatar_url || AVATAR_PLACEHOLDER}" alt="" />
-            <div class="showcase-name">${u.username}${rank}</div>
+            <div class="showcase-name">${u.username}${rank}${badges}</div>
             <div class="muted showcase-tags">${tags}</div>
           </a>
         `;
@@ -84,6 +104,7 @@ function renderBrowseStack() {
   const toUserIdEl = qs("[data-browse-to-user-id]");
   const blockUserIdEl = qs("[data-browse-block-user-id]");
   const reportToUserIdEl = qs("[data-report-to-user-id]");
+  const theirPrefsEl = qs("[data-browse-their-prefs]");
 
   const openReportBtn = qs("[data-open-report]");
   const closeReportBtn = qs("[data-close-report]");
@@ -104,6 +125,8 @@ function renderBrowseStack() {
       if (toUserIdEl) toUserIdEl.value = "";
       if (blockUserIdEl) blockUserIdEl.value = "";
       if (reportToUserIdEl) reportToUserIdEl.value = "";
+      if (theirPrefsEl) setText(theirPrefsEl, "");
+      root.classList.remove("profile-card-cute");
       if (prevBtn) prevBtn.disabled = true;
       if (nextBtn) nextBtn.disabled = true;
       return;
@@ -116,16 +139,21 @@ function renderBrowseStack() {
 
     setText(idxEl, idx + 1);
     const rankText = u.global_rank ? ` (#${u.global_rank})` : "";
-    setText(nameEl, `${u.username}${rankText}`);
+    const badgeText = typeof u.badge_count === "number" ? ` · ${u.badge_count} badges` : "";
+    setText(nameEl, `${u.username}${rankText}${badgeText}`);
     if (avatarEl) avatarEl.src = u.avatar_url || AVATAR_PLACEHOLDER;
 
     const pieces = [];
     pieces.push(`<span class="tag">${u.age}+</span>`);
     if (u.gender) pieces.push(`<span class="tag">${u.gender}</span>`);
     if (u.country_code) pieces.push(`<span class="tag">${u.country_code}</span>`);
+    if (typeof u.badge_count === "number") pieces.push(`<span class="tag">${u.badge_count} badges</span>`);
     setHtml(tagsEl, pieces.join(" "));
 
     setText(bioEl, u.bio);
+    if (theirPrefsEl) setText(theirPrefsEl, formatTheirPrefs(u.their_prefs));
+    if (u.cute_tint) root.classList.add("profile-card-cute");
+    else root.classList.remove("profile-card-cute");
     if (osuLinkEl) osuLinkEl.href = `https://osu.ppy.sh/users/${u.osu_id}`;
     if (toUserIdEl) toUserIdEl.value = u.id;
     if (blockUserIdEl) blockUserIdEl.value = u.id;

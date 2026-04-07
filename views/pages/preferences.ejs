@@ -16,6 +16,7 @@
           const minAge = p && typeof p.min_age === "number" ? p.min_age : "";
           const maxAge = p && typeof p.max_age === "number" ? p.max_age : "";
           const genders = p && Array.isArray(p.genders) ? p.genders : [];
+          const rankMax = p && typeof p.rank_max === "number" ? p.rank_max : null;
         %>
 
         <div class="form-row">
@@ -67,6 +68,21 @@
             </label>
           </div>
           <div class="hint">if u dont check anything, it wont filter gender</div>
+        </div>
+
+        <div class="form-row">
+          <label for="pref_rank">preferred partner rank (osu global)</label>
+          <select id="pref_rank" name="pref_rank">
+            <option value="any" <%= rankMax == null ? "selected" : "" %>>any rank</option>
+            <option value="1" <%= rankMax === 1 ? "selected" : "" %>>#1+</option>
+            <option value="100" <%= rankMax === 100 ? "selected" : "" %>>#100+</option>
+            <option value="500" <%= rankMax === 500 ? "selected" : "" %>>#500+</option>
+            <option value="1000" <%= rankMax === 1000 ? "selected" : "" %>>#1000+</option>
+            <option value="5000" <%= rankMax === 5000 ? "selected" : "" %>>#5000+</option>
+            <option value="10000" <%= rankMax === 10000 ? "selected" : "" %>>#10000+</option>
+            <option value="50000" <%= rankMax === 50000 ? "selected" : "" %>>#50000+</option>
+          </select>
+          <div class="hint">they need to be at least this good (lower # = better)</div>
         </div>
 
         <button class="btn tiny" type="submit">save preferences</button>

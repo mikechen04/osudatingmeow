@@ -24,6 +24,8 @@ app.set("trust proxy", 1);
 
 const PORT = process.env.PORT || 3000;
 const GENDERS = ["male", "female", "enby", "other"];
+// partner must be this rank or better (lower osu global_rank number). null = any rank
+const RANK_PREF_THRESHOLDS = [1, 100, 500, 1000, 5000, 10000, 50000];
 const BIO_MAX = 750;
 const ADMIN_OSU_ID = "9632648"; // owner/admin inbox id for reports etc
 const ADMIN_SECOND_OSU_ID = "12742221"; // second admin emergency login
@@ -35,6 +37,29 @@ const SLUR_RE = /\bfaggots?\b/i;
 function isAdmin(me) {
   if (!me || !me.osu_id) return false;
   return ADMIN_OSU_IDS.has(String(me.osu_id));
+}
+
+function badgeCountFromOsuMe(me) {
+  if (!me || !Array.isArray(me.badges)) return 0;
+  return me.badges.length;
+}
+
+// pastel frame on browse + profile for these ppl (match osu username or display name)
+const CUTE_TINT_NAMES = new Set(["soft kitten", "chinese foid", "risui", "klbby"]);
+
+function normCuteName(s) {
+  return String(s || "")
+    .toLowerCase()
+    .trim()
+    .replace(/_/g, " ");
+}
+
+function userHasCuteTint(username, displayName) {
+  const u = normCuteName(username);
+  const d = normCuteName(displayName);
+  if (u && CUTE_TINT_NAMES.has(u)) return true;
+  if (d && CUTE_TINT_NAMES.has(d)) return true;
+  return false;
 }
 
 function parseCookies(req) {
@@ -61,8 +86,11 @@ function setCookie(res, name, value, opts) {
   if (o.httpOnly) cookie += "; HttpOnly";
   if (o.sameSite) cookie += `; SameSite=${o.sameSite}`;
   if (o.secure) cookie += "; Secure";
-  // append so multiple Set-Cookie headers work (e.g. logout clears two cookies)
-  res.append("Set-Cookie", cookie);
+  // merge like express-session does — if we only used res.append(), getHeader() wouldnt
+  // see those cookies and session middleware would setHeader() and wipe admin_override
+  const prev = res.getHeader("Set-Cookie") || [];
+  const header = Array.isArray(prev) ? prev.concat(cookie) : [prev, cookie];
+  res.setHeader("Set-Cookie", header);
 }
 
 function clearCookie(res, name) {
@@ -202,11 +230,13 @@ app.use(async (req, res, next) => {
           avatar_url: user.avatar_url || null,
           country_code: user.country_code || null,
           global_rank: user.global_rank || null,
+          badge_count: typeof user.badge_count === "number" ? user.badge_count : null,
           age: profile ? profile.age : null,
           bio: profile ? profile.bio : null,
           gender: profile ? profile.gender : null,
           discord: profile ? profile.discord : null,
           display_name: profile ? profile.display_name : null,
+          cute_tint: userHasCuteTint(user.username, profile ? profile.display_name : null),
         };
         res.locals.prefs = prefs;
         res.locals.isAdmin = isAdmin(res.locals.me);
@@ -324,9 +354,11 @@ app.get("/api/featured", requireAuth, async (req, res) => {
         avatar_url: u.avatar_url || null,
         country_code: u.country_code || null,
         global_rank: u.global_rank || null,
+        badge_count: typeof u.badge_count === "number" ? u.badge_count : null,
         age: p.age,
         gender: p.gender || null,
         bio: (p.bio || "").slice(0, 120),
+        cute_tint: userHasCuteTint(u.username, p.display_name),
       });
     }
 
@@ -491,6 +523,7 @@ app.get("/auth/osu/callback", async (req, res) => {
       avatar_url: me.avatar_url || null,
       country_code: me.country_code || null,
       global_rank: (me && me.statistics && me.statistics.global_rank) ? me.statistics.global_rank : null,
+      badge_count: badgeCountFromOsuMe(me),
       updated_at: now,
       created_at: now,
     });
@@ -691,10 +724,21 @@ app.post("/preferences", requireAuth, async (req, res) => {
   // simple filters. leaving stuff blank means "no preference"
   const minAgeRaw = (req.body.pref_min_age || "").toString().trim();
   const maxAgeRaw = (req.body.pref_max_age || "").toString().trim();
+  const rankRaw = (req.body.pref_rank || "").toString().trim();
   const gendersRaw = req.body.pref_genders;
 
   const minAge = minAgeRaw ? parseInt(minAgeRaw, 10) : null;
   const maxAge = maxAgeRaw ? parseInt(maxAgeRaw, 10) : null;
+
+  let rankMax = null;
+  if (rankRaw && rankRaw !== "any") {
+    const n = parseInt(rankRaw, 10);
+    if (!Number.isFinite(n) || !RANK_PREF_THRESHOLDS.includes(n)) {
+      req.session.flash = { type: "error", message: "pick a valid rank option" };
+      return res.redirect("/preferences");
+    }
+    rankMax = n;
+  }
 
   let genders = [];
   if (Array.isArray(gendersRaw)) genders = gendersRaw.map(x => String(x));
@@ -721,6 +765,7 @@ app.post("/preferences", requireAuth, async (req, res) => {
       min_age: minAge,
       max_age: maxAge,
       genders,
+      rank_max: rankMax,
       updated_at: now,
     });
     req.session.flash = { type: "ok", message: "preferences saved" };
@@ -993,7 +1038,13 @@ app.get("/admin/view-profile", requireAuth, async (req, res) => {
     }
 
     if (!targetId) {
-      return res.render("pages/admin_view_profile", { title: "admin view", user: null, profile: null, prefs: null });
+      return res.render("pages/admin_view_profile", {
+        title: "admin view",
+        user: null,
+        profile: null,
+        prefs: null,
+        cute_tint: false,
+      });
     }
 
     const [profileSnap, prefsSnap] = await Promise.all([
@@ -1005,10 +1056,17 @@ app.get("/admin/view-profile", requireAuth, async (req, res) => {
     const profile = profileSnap.exists() ? profileSnap.val() : null;
     const prefs = prefsSnap.exists() ? prefsSnap.val() : null;
 
-    return res.render("pages/admin_view_profile", { title: "admin view", user, profile, prefs });
+    const cute_tint = user ? userHasCuteTint(user.username, profile ? profile.display_name : null) : false;
+    return res.render("pages/admin_view_profile", { title: "admin view", user, profile, prefs, cute_tint });
   } catch (e) {
     console.error(e);
-    return res.render("pages/admin_view_profile", { title: "admin view", user: null, profile: null, prefs: null });
+    return res.render("pages/admin_view_profile", {
+      title: "admin view",
+      user: null,
+      profile: null,
+      prefs: null,
+      cute_tint: false,
+    });
   }
 });
 
@@ -1019,13 +1077,15 @@ app.get("/browse", requireAuthOrGuest, async (req, res) => {
   // both site admins: no block/pref filter, no 50 cap — see everyone
   const isAllAccess = me && isAdmin(me);
 
-  const [usersSnap, profilesSnap] = await Promise.all([
+  const [usersSnap, profilesSnap, allPrefsSnap] = await Promise.all([
     fdb.ref("users").get(),
     fdb.ref("profiles").get(),
+    fdb.ref("prefs").get(),
   ]);
 
   const usersObj = usersSnap.exists() ? usersSnap.val() : {};
   const profilesObj = profilesSnap.exists() ? profilesSnap.val() : {};
+  const prefsAll = allPrefsSnap.exists() ? allPrefsSnap.val() : {};
 
   const out = [];
   for (const [id, u] of Object.entries(usersObj || {})) {
@@ -1034,6 +1094,16 @@ app.get("/browse", requireAuthOrGuest, async (req, res) => {
     const p = profilesObj ? profilesObj[id] : null;
     if (!p) continue;
 
+    const rawPref = prefsAll[id] || null;
+    const their_prefs = rawPref
+      ? {
+          min_age: rawPref.min_age != null ? rawPref.min_age : null,
+          max_age: rawPref.max_age != null ? rawPref.max_age : null,
+          genders: Array.isArray(rawPref.genders) ? rawPref.genders : [],
+          rank_max: rawPref.rank_max != null && typeof rawPref.rank_max === "number" ? rawPref.rank_max : null,
+        }
+      : null;
+
     out.push({
       id,
       osu_id: u.osu_id,
@@ -1041,10 +1111,13 @@ app.get("/browse", requireAuthOrGuest, async (req, res) => {
       avatar_url: u.avatar_url || null,
       country_code: u.country_code || null,
       global_rank: u.global_rank || null,
+      badge_count: typeof u.badge_count === "number" ? u.badge_count : null,
       age: p.age,
       bio: (p.bio || "").slice(0, BIO_MAX),
       gender: p.gender || null,
       updated_at: p.updated_at || 0,
+      their_prefs,
+      cute_tint: userHasCuteTint(u.username, p.display_name),
     });
   }
 
@@ -1067,6 +1140,10 @@ app.get("/browse", requireAuthOrGuest, async (req, res) => {
       if (prefs.max_age !== null && typeof prefs.max_age === "number" && u.age > prefs.max_age) return false;
       if (Array.isArray(prefs.genders) && prefs.genders.length > 0) {
         if (!prefs.genders.includes(u.gender)) return false;
+      }
+      if (prefs.rank_max != null && typeof prefs.rank_max === "number") {
+        const gr = u.global_rank;
+        if (gr == null || gr > prefs.rank_max) return false;
       }
       return true;
     });
