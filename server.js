@@ -5,7 +5,13 @@ const path = require("path");
 const crypto = require("crypto");
 const express = require("express");
 const session = require("express-session");
-const SQLiteStore = require("connect-sqlite3")(session);
+let SQLiteStore = null;
+try {
+  SQLiteStore = require("connect-sqlite3")(session);
+} catch (e) {
+  // ok, we can still run without it (cloud run etc.)
+  SQLiteStore = null;
+}
 
 const { osuAuthorizeUrl, osuExchangeCodeForToken, osuGetMe } = require("./osu");
 const { rtdb } = require("./firebase");
@@ -24,22 +30,27 @@ app.set("views", path.join(__dirname, "views"));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
-app.use(
-  session({
-    store: new SQLiteStore({
-      db: "sessions.sqlite",
-      dir: path.join(__dirname, "data"),
-    }),
-    // no need to set SESSION_SECRET in .env for local dev
-    secret: process.env.SESSION_SECRET || "osu-edating-local-dev-session-key",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      sameSite: "lax",
-    },
-  })
-);
+const sessionOptions = {
+  // no need to set SESSION_SECRET in .env for local dev
+  secret: process.env.SESSION_SECRET || "osu-edating-local-dev-session-key",
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    sameSite: "lax",
+  },
+};
+
+// cloud run containers can be picky about writing files in the image dir.
+// keep it simple: use in-memory sessions in production for now.
+if (process.env.NODE_ENV !== "production" && SQLiteStore) {
+  sessionOptions.store = new SQLiteStore({
+    db: "sessions.sqlite",
+    dir: path.join(__dirname, "data"),
+  });
+}
+
+app.use(session(sessionOptions));
 
 // attach user info for templates
 app.use(async (req, res, next) => {
