@@ -579,7 +579,22 @@ app.get("/browse", requireAuthOrGuest, async (req, res) => {
   }
 
   filtered.sort((a, b) => (b.updated_at || 0) - (a.updated_at || 0));
-  res.render("pages/browse", { title: "browse", users: filtered.slice(0, 50) });
+
+  // force special user to the front (even if prefs would filter them out)
+  // still respects blocks + doesnt show if it's you
+  const specialId = "9632648";
+  const isMeSpecial = me && String(me.osu_id) === specialId;
+  if (!isMeSpecial) {
+    const specialFromBase = baseList.find(u => String(u.osu_id) === specialId || String(u.id) === specialId);
+    if (specialFromBase) {
+      filtered = [specialFromBase, ...filtered.filter(u => String(u.id) !== String(specialFromBase.id))];
+    }
+  }
+
+  // normal users get 100. special user gets everyone.
+  const isAllAccess = me && String(me.osu_id) === "9632648";
+  const list = isAllAccess ? filtered : filtered.slice(0, 100);
+  res.render("pages/browse", { title: "browse", users: list });
 });
 
 app.post("/account/destroy", requireAuth, async (req, res) => {
