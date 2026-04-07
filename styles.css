@@ -1,4 +1,5 @@
-/* root-level copy for static hosting (same as public/styles.css) */
+/* nunito (aheriez.space) + rr layout + cute pastel palette (cream / pink / lavender / mint) */
+
 @import url("https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,700;0,800;1,400&display=swap");
 
 :root {
@@ -30,10 +31,12 @@ html,
 body {
   margin: 0;
   min-height: 100vh;
+  /* cute font from aheriez.space */
   font-family: "Nunito", system-ui, sans-serif;
   color: var(--text);
   background: linear-gradient(165deg, #ffe8f3 0%, #e8e4ff 45%, #d5f5ff 100%);
   line-height: 1.5;
+  /* all ui copy lowercase (inputs keep normal typing) */
   text-transform: lowercase;
 }
 
@@ -48,6 +51,7 @@ a {
   text-decoration: none;
 }
 
+/* soft sparkles (aheriez-style on light) */
 .bg-stars {
   position: fixed;
   inset: 0;
@@ -61,6 +65,7 @@ a {
   background-size: 200px 200px, 200px 200px, 200px 200px, 200px 200px;
 }
 
+/* main header row */
 .rr-header {
   position: sticky;
   top: 0;
@@ -92,6 +97,7 @@ a {
   justify-content: flex-end;
 }
 
+/* buttons — cute gradient primary, soft outline */
 .btn {
   cursor: pointer;
   font: inherit;
@@ -154,6 +160,7 @@ a {
   display: inline;
 }
 
+/* page shell */
 .wrap {
   position: relative;
   z-index: 1;
@@ -165,6 +172,11 @@ a {
   gap: 1.25rem;
 }
 
+.wrap--landing {
+  padding-top: 2rem;
+}
+
+/* landing hero — rr structure */
 .rr-hero {
   text-align: center;
   padding: 2rem 0 2.5rem;
@@ -217,6 +229,7 @@ a {
   color: var(--muted);
 }
 
+/* how it works — rr: mono kicker + big title + 4 cards */
 .rr-features {
   padding: 2rem 0 2rem;
   border-top: 1px solid rgba(255, 255, 255, 0.65);
@@ -300,3 +313,370 @@ a {
 @media (max-width: 520px) {
   .rr-feature-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* cat under how it works */
+.rr-meow-cat {
+  margin-top: 2rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.rr-meow-img {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow: var(--shadow);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.rr-meow-bubble {
+  margin: 0;
+  max-width: 22rem;
+  padding: 0.85rem 1.1rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
+/* make it look like the cat is "saying" it */
+.rr-meow-bubble {
+  position: relative;
+}
+
+.rr-meow-bubble::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  border-right: 12px solid rgba(255, 255, 255, 0.95);
+}
+
+.rr-meow-bubble::after {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 9px solid transparent;
+  border-bottom: 9px solid transparent;
+  border-right: 11px solid var(--bg-card);
+}
+
+/* generic cards (browse, profile, etc.) */
+.card {
+  background: var(--bg-elev);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem 1.35rem;
+  box-shadow: var(--shadow);
+}
+
+.card.compact {
+  padding: 1.15rem 1.2rem;
+}
+
+.est {
+  margin: 0 0 0.35rem;
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  color: #c44b9e;
+}
+
+.card h1,
+.card .h1 {
+  margin: 0.2rem 0 0.5rem;
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.card h1 em,
+.card .h1 em {
+  font-style: italic;
+  color: #ff5a9a;
+}
+
+.panel-title {
+  margin: 0 0 0.35rem;
+  font-size: clamp(1.35rem, 3vw, 1.75rem);
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.kicker {
+  margin: 0 0 0.25rem;
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  color: #c44b9e;
+}
+
+.hero-sub {
+  margin: 0 0 1.25rem;
+  color: var(--muted);
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.tiny-note {
+  margin-top: 1rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+/* map old btn classes to rr */
+a.btn,
+button.btn {
+  text-decoration: none;
+}
+
+.card .btn:not(.btn-outline):not(.ghost),
+.wrap .btn:not(.btn-outline):not(.ghost) {
+  background: linear-gradient(120deg, var(--pink), var(--lav));
+  color: #fff;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(200, 120, 200, 0.3);
+  letter-spacing: 0.06em;
+  font-size: 0.78rem;
+  padding: 0.65rem 1.1rem;
+  border: none;
+}
+
+.card .btn.secondary,
+.wrap .btn.secondary {
+  background: linear-gradient(120deg, var(--mint), #a8e6cf);
+  color: var(--text);
+  border: none;
+  box-shadow: 0 6px 20px rgba(100, 180, 160, 0.22);
+}
+
+.card .btn.secondary:hover,
+.wrap .btn.secondary:hover {
+  filter: brightness(1.04);
+}
+
+.card .btn.tiny,
+.wrap .btn.tiny {
+  padding: 0.5rem 0.85rem;
+  font-size: 0.72rem;
+}
+
+.card .btn.ghost,
+.wrap .btn.ghost {
+  background: rgba(255, 255, 255, 0.6);
+  border: 2px solid var(--border-soft);
+  color: var(--text);
+  box-shadow: none;
+}
+
+.profile-save-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+.card .btn.profile-save-btn {
+  width: auto;
+  max-width: 200px;
+  padding-left: 1.75rem;
+  padding-right: 1.75rem;
+}
+
+.flash {
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 2px solid rgba(212, 196, 255, 0.65);
+  background: rgba(255, 255, 255, 0.85);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.flash.ok {
+  border-color: rgba(100, 200, 140, 0.45);
+  background: rgba(184, 242, 230, 0.35);
+}
+
+.flash.warn {
+  border-color: rgba(255, 200, 100, 0.5);
+  background: rgba(255, 240, 200, 0.45);
+}
+
+.flash.error {
+  border-color: rgba(255, 120, 150, 0.55);
+  background: rgba(255, 220, 230, 0.45);
+}
+
+.divider {
+  text-align: center;
+  color: var(--muted);
+  margin: 0.75rem 0;
+  letter-spacing: 0.2em;
+  font-weight: 700;
+}
+
+.form {
+  display: grid;
+  gap: 1rem;
+}
+
+.form-row label {
+  display: block;
+  font-weight: 800;
+  margin-bottom: 0.35rem;
+  color: var(--text);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  border: 2px solid rgba(212, 196, 255, 0.85);
+  background: var(--cream);
+  font: inherit;
+  color: var(--text);
+  outline: none;
+}
+
+textarea {
+  border-radius: var(--radius);
+  resize: vertical;
+  min-height: 120px;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--pink);
+  box-shadow: 0 0 0 3px rgba(255, 184, 217, 0.45);
+}
+
+.hint {
+  margin-top: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  border: 2px solid rgba(212, 196, 255, 0.65);
+  background: var(--cream);
+  object-fit: cover;
+}
+
+.avatar.big {
+  width: 80px;
+  height: 80px;
+  border-radius: 14px;
+}
+
+.avatar.smol {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+
+.bio {
+  margin: 0.75rem 0;
+  color: var(--text);
+  white-space: pre-wrap;
+  line-height: 1.55;
+}
+
+.bio.big {
+  font-size: 1rem;
+}
+
+.softlink {
+  display: inline-block;
+  margin-top: 0.35rem;
+  color: #9b4d9e;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.mini-label {
+  display: block;
+  font-weight: 800;
+  margin-bottom: 0.4rem;
+  color: var(--text);
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+}
+
+.messagebox textarea {
+  margin-bottom: 0.65rem;
+}
+
+.empty {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.site-footer {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 2rem 1.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(8px);
+}
+
+.site-footer p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.site-footer .footer-credit {
+  margin-top: 0.5rem;
+}
+
+.site-footer .footer-madeby {
+  margin-top: 0.75rem;
+}
+
+.site-footer a {
+  color: #9b4d9e;
+  font-weight: 800;
+}
+
