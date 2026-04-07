@@ -156,6 +156,35 @@ a {
   color: #c44b9e;
 }
 
+.inbox-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.05rem;
+  padding: 0 0.35rem;
+  margin-left: 0.35rem;
+  border-radius: 999px;
+  background: rgba(255, 120, 150, 0.22);
+  border: 1px solid rgba(255, 120, 150, 0.35);
+  color: #c44b9e;
+  font-weight: 800;
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.btn.danger {
+  background: rgba(255, 120, 150, 0.18);
+  border-color: rgba(255, 120, 150, 0.45);
+  color: #c44b9e;
+}
+
+.btn.danger:hover {
+  filter: brightness(1.04);
+  border-color: rgba(255, 120, 150, 0.6);
+  background: rgba(255, 120, 150, 0.25);
+}
+
 .inline {
   display: inline;
 }

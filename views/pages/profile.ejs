@@ -44,6 +44,19 @@
       <div class="hint">shown to others when people browse</div>
     </div>
 
+    <div class="form-row">
+      <label for="discord">discord (optional)</label>
+      <input
+        id="discord"
+        name="discord"
+        type="text"
+        maxlength="64"
+        placeholder="ex: meowmeow#1234 or @meowmeow"
+        value="<%= me && me.discord ? me.discord : '' %>"
+      />
+      <div class="hint">shown on your profile only (for now)</div>
+    </div>
+
     <div class="profile-save-wrap">
       <button class="btn profile-save-btn" type="submit">save profile</button>
     </div>
@@ -56,7 +69,7 @@
     method="post"
     onsubmit="return confirm('are u sure? this deletes ur profile + messages and logs u out')"
   >
-    <button class="btn ghost" type="submit">destroy ur profile</button>
+    <button class="btn danger" type="submit">destroy ur profile</button>
   </form>
 </section>
 

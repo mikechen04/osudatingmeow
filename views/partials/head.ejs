@@ -21,8 +21,14 @@
 
       <div class="rr-header-actions">
         <% if (me) { %>
+          <a class="linklike" href="/preferences">preferences</a>
           <a class="linklike" href="/browse">browse</a>
-          <a class="linklike" href="/inbox">inbox</a>
+          <a class="linklike" href="/inbox">
+            inbox
+            <% if (typeof inboxUnread === "number") { %>
+              <span class="inbox-badge"><%= inboxUnread %></span>
+            <% } %>
+          </a>
           <a class="linklike" href="/profile">profile</a>
           <form action="/logout" method="post" class="inline">
             <button class="linklike" type="submit">logout</button>

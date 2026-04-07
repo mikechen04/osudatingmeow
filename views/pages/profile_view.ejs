@@ -1,0 +1,45 @@
+<%- include("../partials/head", { title }) %>
+
+<section class="card">
+  <p class="est">profile</p>
+  <h1 class="h1">this is what ppl see</h1>
+
+  <% if (!me || !me.age || !me.bio || !me.gender) { %>
+    <div class="notice" style="margin-top: 0.75rem">
+      <div class="notice-title">ur profile isnt done yet</div>
+      <div class="notice-text">add age + gender + description so ppl can see u</div>
+    </div>
+    <a class="btn" href="/profile/edit">edit profile</a>
+  <% } else { %>
+    <div class="profile-block">
+      <img class="avatar big" src="<%= me.avatar_url || 'https://files.catbox.moe/evvmvg.webp' %>" alt="" />
+      <div>
+        <div class="user-name"><%= me.username %></div>
+        <div class="user-sub">
+          <span class="tag"><%= me.age %>+</span>
+          <span class="tag"><%= me.gender %></span>
+          <% if (me.country_code) { %>
+            <span class="tag"><%= me.country_code %></span>
+          <% } %>
+        </div>
+        <a class="softlink" href="https://osu.ppy.sh/users/<%= me.osu_id %>" target="_blank" rel="noreferrer">open osu! profile</a>
+      </div>
+    </div>
+
+    <div class="bio big"><%= me.bio %></div>
+
+    <% if (me.discord) { %>
+      <div class="stack-item" style="margin-top: 0.85rem">
+        <h3>discord</h3>
+        <p><%= me.discord %></p>
+      </div>
+    <% } %>
+
+    <div class="divider">✿</div>
+
+    <a class="btn" href="/profile/edit">edit profile</a>
+  <% } %>
+</section>
+
+<%- include("../partials/foot") %>
+

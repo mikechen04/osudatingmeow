@@ -57,6 +57,7 @@ app.use(session(sessionOptions));
 app.use(async (req, res, next) => {
   try {
     res.locals.me = null;
+    res.locals.inboxUnread = null;
 
     if (req.session && req.session.userId) {
       const userId = String(req.session.userId);
@@ -64,9 +65,11 @@ app.use(async (req, res, next) => {
 
       const userSnap = await fdb.ref(`users/${userId}`).get();
       const profileSnap = await fdb.ref(`profiles/${userId}`).get();
+      const inboxSnap = await fdb.ref(`inbox/${userId}`).get();
 
       const user = userSnap.exists() ? userSnap.val() : null;
       const profile = profileSnap.exists() ? profileSnap.val() : null;
+      const inboxObj = inboxSnap.exists() ? inboxSnap.val() : {};
 
       if (user) {
         res.locals.me = {
@@ -78,7 +81,15 @@ app.use(async (req, res, next) => {
           age: profile ? profile.age : null,
           bio: profile ? profile.bio : null,
           gender: profile ? profile.gender : null,
+          discord: profile ? profile.discord : null,
         };
+
+        // count unread messages
+        let unread = 0;
+        for (const m of Object.values(inboxObj || {})) {
+          if (m && !m.read_at) unread += 1;
+        }
+        res.locals.inboxUnread = unread;
       }
     }
 
@@ -108,7 +119,7 @@ function requireProfile(req, res, next) {
       type: "warn",
       message: "finish your profile first so ppl know who u are",
     };
-    return res.redirect("/profile");
+    return res.redirect("/profile/edit");
   }
   next();
 }
@@ -206,7 +217,7 @@ app.get("/auth/osu/callback", async (req, res) => {
 
     req.session.userId = userId;
 
-    return res.redirect("/profile");
+    return res.redirect("/preferences");
   } catch (err) {
     console.error(err);
     req.session.flash = {
@@ -223,18 +234,28 @@ app.post("/logout", (req, res) => {
   });
 });
 
+app.get("/preferences", requireAuth, (req, res) => {
+  res.render("pages/preferences", { title: "preferences" });
+});
+
 app.get("/profile", requireAuth, (req, res) => {
-  res.render("pages/profile", { title: "profile" });
+  res.render("pages/profile_view", { title: "profile" });
+});
+
+app.get("/profile/edit", requireAuth, (req, res) => {
+  res.render("pages/profile", { title: "edit profile" });
 });
 
 app.post("/profile", requireAuth, async (req, res) => {
   const ageRaw = (req.body.age || "").toString().trim();
   const bioRaw = (req.body.bio || "").toString().trim();
   const genderRaw = (req.body.gender || "").toString().trim();
+  const discordRaw = (req.body.discord || "").toString().trim();
 
   const age = parseInt(ageRaw, 10);
   const bio = bioRaw.slice(0, 400);
   const gender = GENDERS.includes(genderRaw) ? genderRaw : null;
+  const discord = discordRaw.slice(0, 64);
 
   if (!Number.isFinite(age)) {
     req.session.flash = { type: "error", message: "age has to be a number" };
@@ -268,7 +289,8 @@ app.post("/profile", requireAuth, async (req, res) => {
   const now = Date.now();
   const userId = String(req.session.userId);
   try {
-    await rtdb().ref(`profiles/${userId}`).set({ age, bio, gender, updated_at: now });
+    await rtdb().ref(`profiles/${userId}`).set({ age, bio, gender, discord: discord || null, updated_at: now });
+    req.session.flash = { type: "ok", message: "profile saved" };
     return res.redirect("/browse");
   } catch (e) {
     console.error(e);
@@ -342,6 +364,7 @@ app.post("/account/destroy", requireAuth, async (req, res) => {
     await fdb.ref().update(updates);
 
     req.session.destroy(() => {
+      // cant show flash after destroying session, so just bounce home
       res.redirect("/");
     });
   } catch (e) {
@@ -356,6 +379,7 @@ app.post("/message/send", requireAuth, requireProfile, async (req, res) => {
   const toUserId = (req.body.to_user_id || "").toString().trim();
   const bodyRaw = (req.body.body || "").toString().trim();
   const body = bodyRaw.slice(0, 600);
+  const redirectTo = (req.body.redirect_to || "").toString().trim();
 
   if (!toUserId) {
     req.session.flash = { type: "error", message: "invalid recipient" };
@@ -392,7 +416,8 @@ app.post("/message/send", requireAuth, requireProfile, async (req, res) => {
     read_at: null,
   });
 
-  res.redirect("/browse");
+  req.session.flash = { type: "ok", message: "message sent" };
+  res.redirect(redirectTo || "/browse");
 });
 
 app.get("/inbox", requireAuth, requireProfile, async (req, res) => {

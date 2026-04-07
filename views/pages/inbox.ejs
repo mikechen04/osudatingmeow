@@ -25,6 +25,14 @@
               <div class="msg-time"><%= new Date(m.created_at).toLocaleString() %></div>
             </div>
             <div class="msg-body"><%= m.body %></div>
+
+            <form class="replybox" action="/message/send" method="post" style="margin-top: 0.65rem">
+              <input type="hidden" name="to_user_id" value="<%= m.from_user_id %>" />
+              <input type="hidden" name="redirect_to" value="/inbox" />
+              <label class="mini-label">reply</label>
+              <textarea name="body" rows="2" maxlength="600" placeholder="type a reply..." required></textarea>
+              <button class="btn tiny" type="submit">send</button>
+            </form>
           </div>
         </div>
       <% }) %>

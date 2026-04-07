@@ -1,0 +1,29 @@
+<%- include("../partials/head", { title }) %>
+
+<section class="card">
+  <p class="est">preferences</p>
+  <h1 class="h1">settings n stuff</h1>
+
+  <div class="stack-section">
+    <div class="stack-item">
+      <h3>profile</h3>
+      <p>edit ur info + discord + all that</p>
+      <a class="btn tiny" href="/profile">open profile</a>
+    </div>
+
+    <div class="stack-item">
+      <h3>danger zone</h3>
+      <p>this deletes ur profile + messages and logs u out</p>
+      <form
+        action="/account/destroy"
+        method="post"
+        onsubmit="return confirm('are u sure? this deletes ur profile + messages and logs u out')"
+      >
+        <button class="btn danger" type="submit">destroy ur profile</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<%- include("../partials/foot") %>
+
