@@ -1,0 +1,68 @@
+<%- include("../partials/head", { title }) %>
+
+<section class="card">
+  <p class="est">admin · read only</p>
+
+  <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; justify-content: space-between">
+    <div>
+      <div class="panel-title" style="margin: 0">chat history</div>
+      <div style="margin-top: 0.35rem; font-weight: 800">
+        <a class="softlink" href="/admin/view-profile?q=<%= encodeURIComponent(userA) %>"><%= nameA %></a>
+        <span class="muted">↔</span>
+        <a class="softlink" href="/admin/view-profile?q=<%= encodeURIComponent(userB) %>"><%= nameB %></a>
+      </div>
+      <% if (osuA || osuB) { %>
+        <div class="muted" style="margin-top: 0.25rem; font-size: 0.85rem">
+          <% if (osuA) { %>
+            <a class="softlink" href="https://osu.ppy.sh/users/<%= osuA %>" target="_blank" rel="noreferrer">osu <%= nameA %></a>
+          <% } %>
+          <% if (osuA && osuB) { %> · <% } %>
+          <% if (osuB) { %>
+            <a class="softlink" href="https://osu.ppy.sh/users/<%= osuB %>" target="_blank" rel="noreferrer">osu <%= nameB %></a>
+          <% } %>
+        </div>
+      <% } %>
+    </div>
+
+    <div style="display: flex; gap: 0.4rem; flex-wrap: wrap">
+      <% if (return_q) { %>
+        <a class="btn tiny ghost" href="/admin/messages?q=<%= encodeURIComponent(return_q) %>">back to search</a>
+      <% } else { %>
+        <a class="btn tiny ghost" href="/admin/messages">back to search</a>
+      <% } %>
+      <a class="btn tiny ghost" href="/preferences">preferences</a>
+    </div>
+  </div>
+
+  <div class="divider">✿</div>
+
+  <% if (!messages || messages.length === 0) { %>
+    <p class="empty">no messages between these two (or ids wrong)</p>
+  <% } else { %>
+    <div class="inbox">
+      <% messages.forEach(m => { %>
+        <%
+          const fromId = m && m.from_user_id ? String(m.from_user_id) : "";
+          const fromA = fromId === String(userA);
+          const av = fromA ? (avatarA || m.from_avatar_url) : (avatarB || m.from_avatar_url);
+          const who = fromA ? nameA : nameB;
+        %>
+        <div class="msg <%= fromA ? 'read' : 'unread' %>">
+          <img class="avatar smol" src="<%= av || 'https://files.catbox.moe/evvmvg.webp' %>" alt="" />
+          <div>
+            <div class="msg-top">
+              <div class="msg-from">
+                <b><%= who %></b>
+                <span class="muted" style="font-weight: 400"> · stored in inbox <%= m._inbox_owner %></span>
+              </div>
+              <div class="msg-time"><%= new Date(m.created_at || 0).toLocaleString() %></div>
+            </div>
+            <div class="msg-body"><%= m.body %></div>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+</section>
+
+<%- include("../partials/foot") %>

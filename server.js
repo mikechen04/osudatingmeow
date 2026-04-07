@@ -175,6 +175,41 @@ async function adminSearchInboxMessages(keyword) {
   return { matches, truncated, error: null };
 }
 
+// admin: full thread between two user ids (only reads inbox/a and inbox/b — not whole tree)
+async function adminLoadThreadBetween(userA, userB) {
+  const a = String(userA || "").trim();
+  const b = String(userB || "").trim();
+  if (!a || !b || a === b) {
+    return { messages: [], error: "need two different user ids" };
+  }
+  const fdb = rtdb();
+  const [snapA, snapB] = await Promise.all([fdb.ref(`inbox/${a}`).get(), fdb.ref(`inbox/${b}`).get()]);
+
+  const seen = new Set();
+  const thread = [];
+
+  function consider(m, inboxOwner) {
+    if (!m || m.body == null) return;
+    const from = String(m.from_user_id || "");
+    const to = String(m.to_user_id || "");
+    if (!from || !to) return;
+    const pair = new Set([from, to]);
+    if (!pair.has(a) || !pair.has(b)) return;
+    const dk = `${m.created_at}|${from}|${to}`;
+    if (seen.has(dk)) return;
+    seen.add(dk);
+    thread.push(Object.assign({}, m, { _inbox_owner: inboxOwner }));
+  }
+
+  const objA = snapA.exists() ? snapA.val() : {};
+  const objB = snapB.exists() ? snapB.val() : {};
+  for (const m of Object.values(objA || {})) consider(m, a);
+  for (const m of Object.values(objB || {})) consider(m, b);
+
+  thread.sort((x, y) => (x.created_at || 0) - (y.created_at || 0));
+  return { messages: thread, error: null };
+}
+
 async function createAutoReport({ me, toUserId, toUser, where, text }) {
   const body = String(text || "").slice(0, 500);
   const now = Date.now();
@@ -340,6 +375,12 @@ function requireAuth(req, res, next) {
   if (!req.session || !req.session.userId) {
     return res.redirect("/");
   }
+  next();
+}
+
+// must be logged in; res.locals.me must be a site admin (use after requireAuth)
+function requireAdmin(req, res, next) {
+  if (!isAdmin(res.locals.me)) return res.redirect("/");
   next();
 }
 
@@ -756,10 +797,7 @@ app.get("/preferences", requireAuth, async (req, res) => {
   }
 });
 
-app.post("/admin/reports/done", requireAuth, async (req, res) => {
-  const me = res.locals.me;
-  if (!isAdmin(me)) return res.redirect("/");
-
+app.post("/admin/reports/done", requireAuth, requireAdmin, async (req, res) => {
   const reportId = (req.body.report_id || "").toString().trim();
   if (!reportId) return res.redirect("/preferences");
 
@@ -989,10 +1027,7 @@ async function cleanupLongBios() {
   return wiped;
 }
 
-app.post("/admin/cleanup-bios", requireAuth, async (req, res) => {
-  const me = res.locals.me;
-  if (!isAdmin(me)) return res.redirect("/");
-
+app.post("/admin/cleanup-bios", requireAuth, requireAdmin, async (req, res) => {
   try {
     const wiped = await cleanupLongBios();
     req.session.flash = { type: "ok", message: `cleaned ${wiped} bios` };
@@ -1004,10 +1039,7 @@ app.post("/admin/cleanup-bios", requireAuth, async (req, res) => {
   }
 });
 
-app.post("/admin/wipe-user", requireAuth, async (req, res) => {
-  const me = res.locals.me;
-  if (!isAdmin(me)) return res.redirect("/");
-
+app.post("/admin/wipe-user", requireAuth, requireAdmin, async (req, res) => {
   const q = (req.body.q || "").toString().trim();
   if (!q) return res.redirect("/preferences");
 
@@ -1086,10 +1118,7 @@ app.post("/admin/wipe-user", requireAuth, async (req, res) => {
   }
 });
 
-app.get("/admin/messages", requireAuth, async (req, res) => {
-  const me = res.locals.me;
-  if (!isAdmin(me)) return res.redirect("/");
-
+app.get("/admin/messages", requireAuth, requireAdmin, async (req, res) => {
   const rawQ = String(req.query.q || "").trim();
   if (!rawQ) {
     return res.render("pages/admin_message_search", {
@@ -1122,10 +1151,54 @@ app.get("/admin/messages", requireAuth, async (req, res) => {
   }
 });
 
-app.get("/admin/view-profile", requireAuth, async (req, res) => {
-  const me = res.locals.me;
-  if (!isAdmin(me)) return res.redirect("/");
+// full chat between two accounts — admins only (requireAdmin before any data load)
+app.get("/admin/messages/thread", requireAuth, requireAdmin, async (req, res) => {
+  const a = String(req.query.a || "").trim();
+  const b = String(req.query.b || "").trim();
+  const returnQ = String(req.query.return_q || "").trim();
 
+  if (!a || !b || a === b) {
+    req.session.flash = { type: "error", message: "bad thread link" };
+    return res.redirect("/admin/messages");
+  }
+
+  try {
+    const fdb = rtdb();
+    const [{ messages, error }, userSnapA, userSnapB] = await Promise.all([
+      adminLoadThreadBetween(a, b),
+      fdb.ref(`users/${a}`).get(),
+      fdb.ref(`users/${b}`).get(),
+    ]);
+
+    if (error) {
+      req.session.flash = { type: "error", message: error };
+      return res.redirect("/admin/messages");
+    }
+
+    const ua = userSnapA.exists() ? userSnapA.val() : {};
+    const ub = userSnapB.exists() ? userSnapB.val() : {};
+
+    return res.render("pages/admin_inbox_thread", {
+      title: "admin · chat",
+      userA: a,
+      userB: b,
+      nameA: ua.username || `id ${a}`,
+      nameB: ub.username || `id ${b}`,
+      osuA: ua.osu_id || null,
+      osuB: ub.osu_id || null,
+      avatarA: ua.avatar_url || null,
+      avatarB: ub.avatar_url || null,
+      messages,
+      return_q: returnQ,
+    });
+  } catch (e) {
+    console.error(e);
+    req.session.flash = { type: "error", message: "failed to load thread" };
+    return res.redirect("/admin/messages");
+  }
+});
+
+app.get("/admin/view-profile", requireAuth, requireAdmin, async (req, res) => {
   const q = String(req.query.q || "").trim();
   if (!q) return res.redirect("/preferences");
 

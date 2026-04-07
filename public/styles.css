@@ -282,6 +282,9 @@ a {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .wrap--landing {
@@ -545,6 +548,9 @@ a {
   border-radius: var(--radius-lg);
   padding: 1.5rem 1.35rem;
   box-shadow: var(--shadow);
+  /* so long text can shrink inside flex column layout */
+  min-width: 0;
+  max-width: 100%;
 }
 
 .card.compact {
@@ -869,6 +875,13 @@ select:focus {
   gap: 1rem;
   align-items: flex-start;
   margin-bottom: 1rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.profile-block > div:last-child {
+  min-width: 0;
+  flex: 1;
 }
 
 .avatar {
@@ -896,6 +909,8 @@ select:focus {
   font-weight: 800;
   font-size: 1.1rem;
   color: var(--text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .user-sub {
@@ -921,6 +936,9 @@ select:focus {
   color: var(--text);
   white-space: pre-wrap;
   line-height: 1.55;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
 }
 
 .bio.big {
@@ -947,6 +965,8 @@ select:focus {
 
 .messagebox textarea {
   margin-bottom: 0.65rem;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .rules-grid {
@@ -983,12 +1003,14 @@ select:focus {
 
 .msg {
   display: grid;
-  grid-template-columns: 44px 1fr;
+  grid-template-columns: 44px minmax(0, 1fr);
   gap: 0.75rem;
   padding: 1rem;
   border-radius: var(--radius);
   border: 1px solid rgba(255, 255, 255, 0.9);
   background: rgba(255, 255, 255, 0.55);
+  min-width: 0;
+  max-width: 100%;
 }
 
 .msg--row {
@@ -998,10 +1020,11 @@ select:focus {
 
 .msg-link {
   display: grid;
-  grid-template-columns: 44px 1fr;
+  grid-template-columns: 44px minmax(0, 1fr);
   gap: 0.75rem;
   color: inherit;
   text-decoration: none;
+  min-width: 0;
 }
 
 .msg-actions {
@@ -1039,6 +1062,9 @@ select:focus {
   color: var(--text);
   /* dont force lowercase for messages */
   text-transform: none;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
 }
 
 .empty {

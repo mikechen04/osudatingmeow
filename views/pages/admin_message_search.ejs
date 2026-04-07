@@ -47,6 +47,12 @@
             msg in inbox folder of user id <%= row.inbox_owner_id %>
           </div>
           <div class="msg-body" style="margin-top: 0.5rem; white-space: pre-wrap"><%= row.body %></div>
+          <div style="margin-top: 0.65rem">
+            <a
+              class="btn tiny"
+              href="/admin/messages/thread?a=<%= encodeURIComponent(row.from_user_id) %>&b=<%= encodeURIComponent(row.to_user_id) %><% if (keyword) { %>&return_q=<%= encodeURIComponent(keyword) %><% } %>"
+            >chat history</a>
+          </div>
         </div>
       <% }) %>
     </div>
