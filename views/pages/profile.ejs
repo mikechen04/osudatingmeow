@@ -2,14 +2,7 @@
 
 <section class="card">
   <p class="est">profile</p>
-  <h1 class="h1">make it <em>cute</em></h1>
-
-  <div class="notice">
-    <div class="notice-title">18+ only</div>
-    <div class="notice-text">
-      you must be <b>18 or older</b> to use this site. setting your age below is required.
-    </div>
-  </div>
+  <h1 class="h1">meow arf awruff</h1>
 
   <form action="/profile" method="post" class="form">
     <div class="form-row">
@@ -23,7 +16,19 @@
         value="<%= me && me.age ? me.age : 18 %>"
         required
       />
-      <div class="hint">minimum 18. don’t lie or the osu! gods will smite u</div>
+      <div class="hint">18+ only. please dont lie</div>
+    </div>
+
+    <div class="form-row">
+      <label for="gender">gender</label>
+      <select id="gender" name="gender" required>
+        <option value="" disabled <%= !me || !me.gender ? "selected" : "" %>>pick one</option>
+        <option value="male" <%= me && me.gender === "male" ? "selected" : "" %>>male</option>
+        <option value="female" <%= me && me.gender === "female" ? "selected" : "" %>>female</option>
+        <option value="enby" <%= me && me.gender === "enby" ? "selected" : "" %>>enby</option>
+        <option value="other" <%= me && me.gender === "other" ? "selected" : "" %>>other</option>
+      </select>
+      <div class="hint">shown next to ur age when ppl browse</div>
     </div>
 
     <div class="form-row">
@@ -36,10 +41,12 @@
         placeholder="ex: looking for a duo who won't abandon me after 1 bad map..."
         required
       ><%= me && me.bio ? me.bio : "" %></textarea>
-      <div class="hint">shown when people browse. keep it light.</div>
+      <div class="hint">shown to others when people browse</div>
     </div>
 
-    <button class="btn" type="submit">save profile</button>
+    <div class="profile-save-wrap">
+      <button class="btn profile-save-btn" type="submit">save profile</button>
+    </div>
   </form>
 </section>
 

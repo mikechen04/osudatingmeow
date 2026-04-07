@@ -2,16 +2,19 @@
 
 <section class="card">
   <p class="est">inbox</p>
-  <h1 class="h1">messages for <em>you</em></h1>
-  <p class="muted" style="margin: 0 0 1rem">people sent these while you were touching grass (or farming pp)</p>
+  <p class="muted" style="margin: 0 0 1rem">people sent these love letters to you</p>
 
   <% if (!messages || messages.length === 0) { %>
-    <p class="empty">no messages yet. either ur too powerful or nobody has found you. tragic.</p>
+    <p class="empty">no messages yet. ur a chud</p>
   <% } else { %>
     <div class="inbox">
       <% messages.forEach(m => { %>
         <div class="msg <%= m.read_at ? 'read' : 'unread' %>">
-          <img class="avatar smol" src="<%= m.from_avatar_url %>" alt="" />
+          <img
+            class="avatar smol"
+            src="<%= m.from_avatar_url || 'https://files.catbox.moe/evvmvg.webp' %>"
+            alt=""
+          />
           <div>
             <div class="msg-top">
               <div class="msg-from">

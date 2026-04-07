@@ -1,5 +1,8 @@
 // tiny front-end helpers. nothing fancy.
 
+// when no avatar or empty browse state
+const AVATAR_PLACEHOLDER = "https://files.catbox.moe/evvmvg.webp";
+
 function qs(sel) {
   return document.querySelector(sel);
 }
@@ -46,9 +49,9 @@ function renderBrowseStack() {
     if (users.length === 0) {
       setText(idxEl, "0");
       setText(nameEl, "nobody here yet");
-      if (avatarEl) avatarEl.src = "";
+      if (avatarEl) avatarEl.src = AVATAR_PLACEHOLDER;
       setHtml(tagsEl, "");
-      setText(bioEl, "tell ur friends to make a profile so u can rizz them up");
+      setText(bioEl, "tell ur friends to make a profile so u have ppl to browse");
       if (osuLinkEl) osuLinkEl.href = "#";
       if (toUserIdEl) toUserIdEl.value = "";
       if (prevBtn) prevBtn.disabled = true;
@@ -63,10 +66,11 @@ function renderBrowseStack() {
 
     setText(idxEl, idx + 1);
     setText(nameEl, u.username);
-    if (avatarEl) avatarEl.src = u.avatar_url || "";
+    if (avatarEl) avatarEl.src = u.avatar_url || AVATAR_PLACEHOLDER;
 
     const pieces = [];
     pieces.push(`<span class="tag">${u.age}+</span>`);
+    if (u.gender) pieces.push(`<span class="tag">${u.gender}</span>`);
     if (u.country_code) pieces.push(`<span class="tag">${u.country_code}</span>`);
     setHtml(tagsEl, pieces.join(" "));
 

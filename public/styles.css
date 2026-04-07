@@ -182,19 +182,6 @@ a {
   padding: 2rem 0 2.5rem;
 }
 
-.rr-hero-tag {
-  display: inline-block;
-  padding: 0.45rem 0.75rem;
-  border: 2px solid rgba(255, 184, 217, 0.85);
-  border-radius: 8px;
-  font-size: 0.65rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  color: #c44b9e;
-  background: rgba(255, 255, 255, 0.55);
-  margin-bottom: 1.25rem;
-}
-
 .rr-hero-title {
   margin: 0;
   font-size: clamp(2.5rem, 8vw, 4.25rem);
@@ -329,6 +316,39 @@ a {
   }
 }
 
+/* cat under how it works */
+.rr-meow-cat {
+  margin-top: 2rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.rr-meow-img {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow: var(--shadow);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.rr-meow-bubble {
+  margin: 0;
+  max-width: 22rem;
+  padding: 0.85rem 1.1rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
 /* generic cards (browse, profile, etc.) */
 .card {
   background: var(--bg-elev);
@@ -445,6 +465,19 @@ button.btn {
   box-shadow: none;
 }
 
+.profile-save-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+.card .btn.profile-save-btn {
+  width: auto;
+  max-width: 200px;
+  padding-left: 1.75rem;
+  padding-right: 1.75rem;
+}
+
 .flash {
   padding: 0.85rem 1rem;
   border-radius: var(--radius-lg);
@@ -537,7 +570,8 @@ button.btn {
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   padding: 0.75rem 1rem;
   border-radius: 999px;
@@ -555,7 +589,8 @@ textarea {
 }
 
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   border-color: var(--pink);
   box-shadow: 0 0 0 3px rgba(255, 184, 217, 0.45);
 }
@@ -770,6 +805,10 @@ textarea:focus {
 
 .site-footer .footer-credit {
   margin-top: 0.5rem;
+}
+
+.site-footer .footer-madeby {
+  margin-top: 0.75rem;
 }
 
 .site-footer a {

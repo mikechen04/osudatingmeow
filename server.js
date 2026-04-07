@@ -1,7 +1,7 @@
-require("dotenv").config();
+require("./load-env");
 
-const crypto = require("crypto");
 const path = require("path");
+const crypto = require("crypto");
 const express = require("express");
 const session = require("express-session");
 const SQLiteStore = require("connect-sqlite3")(session);
@@ -13,6 +13,7 @@ const app = express();
 const db = getDb();
 
 const PORT = process.env.PORT || 3000;
+const GENDERS = ["male", "female", "enby", "other"];
 
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
@@ -26,7 +27,8 @@ app.use(
       db: "sessions.sqlite",
       dir: path.join(__dirname, "data"),
     }),
-    secret: process.env.SESSION_SECRET || "dev-secret-pls-change",
+    // no need to set SESSION_SECRET in .env for local dev
+    secret: process.env.SESSION_SECRET || "osu-edating-local-dev-session-key",
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -43,7 +45,7 @@ app.use((req, res, next) => {
     const user = db
       .prepare(
         `
-        SELECT u.*, p.age, p.bio
+        SELECT u.*, p.age, p.bio, p.gender
         FROM users u
         LEFT JOIN profiles p ON p.user_id = u.id
         WHERE u.id = ?
@@ -60,7 +62,6 @@ app.use((req, res, next) => {
 
 function requireAuth(req, res, next) {
   if (!req.session || !req.session.userId) {
-    req.session.flash = { type: "warn", message: "pls login first lol" };
     return res.redirect("/");
   }
   next();
@@ -69,7 +70,7 @@ function requireAuth(req, res, next) {
 function requireProfile(req, res, next) {
   const me = res.locals.me;
   if (!me) return res.redirect("/");
-  if (!me.age || !me.bio) {
+  if (!me.age || !me.bio || !me.gender) {
     req.session.flash = {
       type: "warn",
       message: "finish your profile first so ppl know who u are",
@@ -85,10 +86,24 @@ app.get("/", (req, res) => {
   });
 });
 
+app.get("/index.html", (req, res) => {
+  res.redirect(301, "/");
+});
+
 app.get("/auth/osu", (req, res) => {
-  const state = crypto.randomBytes(24).toString("hex");
-  req.session.osuState = state;
-  res.redirect(osuAuthorizeUrl(state));
+  try {
+    const state = crypto.randomBytes(24).toString("hex");
+    req.session.osuState = state;
+    res.redirect(osuAuthorizeUrl(state));
+  } catch (err) {
+    console.error(err);
+    req.session.flash = {
+      type: "error",
+      message:
+        "missing osu! oauth keys. check .env in the project folder has OSU_CLIENT_ID (and restart the server)",
+    };
+    res.redirect("/");
+  }
 });
 
 app.get("/auth/osu/callback", async (req, res) => {
@@ -141,7 +156,6 @@ app.get("/auth/osu/callback", async (req, res) => {
 
     req.session.userId = userId;
 
-    req.session.flash = { type: "ok", message: "logged in. welcome gamer" };
     return res.redirect("/profile");
   } catch (err) {
     console.error(err);
@@ -160,15 +174,17 @@ app.post("/logout", (req, res) => {
 });
 
 app.get("/profile", requireAuth, (req, res) => {
-  res.render("pages/profile", { title: "setup profile" });
+  res.render("pages/profile", { title: "profile" });
 });
 
 app.post("/profile", requireAuth, (req, res) => {
   const ageRaw = (req.body.age || "").toString().trim();
   const bioRaw = (req.body.bio || "").toString().trim();
+  const genderRaw = (req.body.gender || "").toString().trim();
 
   const age = parseInt(ageRaw, 10);
   const bio = bioRaw.slice(0, 400);
+  const gender = GENDERS.includes(genderRaw) ? genderRaw : null;
 
   if (!Number.isFinite(age)) {
     req.session.flash = { type: "error", message: "age has to be a number" };
@@ -191,19 +207,27 @@ app.post("/profile", requireAuth, (req, res) => {
     return res.redirect("/profile");
   }
 
+  if (!gender) {
+    req.session.flash = {
+      type: "error",
+      message: "pick a gender option",
+    };
+    return res.redirect("/profile");
+  }
+
   const now = new Date().toISOString();
   db.prepare(
     `
-    INSERT INTO profiles (user_id, age, bio, updated_at)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO profiles (user_id, age, bio, gender, updated_at)
+    VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(user_id) DO UPDATE SET
       age = excluded.age,
       bio = excluded.bio,
+      gender = excluded.gender,
       updated_at = excluded.updated_at
   `
-  ).run(req.session.userId, age, bio, now);
+  ).run(req.session.userId, age, bio, gender, now);
 
-  req.session.flash = { type: "ok", message: "profile saved. go rizz" };
   res.redirect("/browse");
 });
 
@@ -212,7 +236,7 @@ app.get("/browse", requireAuth, requireProfile, (req, res) => {
   const users = db
     .prepare(
       `
-      SELECT u.id, u.osu_id, u.username, u.avatar_url, u.country_code, p.age, p.bio, p.updated_at
+      SELECT u.id, u.osu_id, u.username, u.avatar_url, u.country_code, p.age, p.bio, p.gender, p.updated_at
       FROM users u
       JOIN profiles p ON p.user_id = u.id
       WHERE u.id != ?

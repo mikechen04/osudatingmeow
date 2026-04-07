@@ -1,9 +1,12 @@
+require("./load-env");
+
 const OSU_AUTHORIZE_URL = "https://osu.ppy.sh/oauth/authorize";
 const OSU_TOKEN_URL = "https://osu.ppy.sh/oauth/token";
 const OSU_API_ME_URL = "https://osu.ppy.sh/api/v2/me";
 
 function mustEnv(name) {
-  const v = process.env[name];
+  const raw = process.env[name];
+  const v = raw == null ? "" : String(raw).trim();
   if (!v) throw new Error(`missing env var: ${name}`);
   return v;
 }
@@ -27,19 +30,22 @@ async function osuExchangeCodeForToken(code) {
   const clientSecret = mustEnv("OSU_CLIENT_SECRET");
   const redirectUri = mustEnv("OSU_REDIRECT_URI");
 
+  // osu! expects form body, not json (see https://osu.ppy.sh/docs/ — oauth/token)
+  const body = new URLSearchParams({
+    grant_type: "authorization_code",
+    client_id: String(parseInt(clientId, 10)),
+    client_secret: clientSecret,
+    code,
+    redirect_uri: redirectUri,
+  });
+
   const res = await fetch(OSU_TOKEN_URL, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
       Accept: "application/json",
     },
-    body: JSON.stringify({
-      client_id: parseInt(clientId, 10),
-      client_secret: clientSecret,
-      code,
-      grant_type: "authorization_code",
-      redirect_uri: redirectUri,
-    }),
+    body: body.toString(),
   });
 
   if (!res.ok) {

@@ -26,6 +26,7 @@ function getDb() {
       user_id INTEGER PRIMARY KEY,
       age INTEGER NOT NULL,
       bio TEXT NOT NULL,
+      gender TEXT,
       updated_at TEXT NOT NULL,
       FOREIGN KEY(user_id) REFERENCES users(id)
     );
@@ -41,6 +42,13 @@ function getDb() {
       FOREIGN KEY(to_user_id) REFERENCES users(id)
     );
   `);
+
+  // add gender for old dbs that already had profiles table
+  try {
+    db.exec(`ALTER TABLE profiles ADD COLUMN gender TEXT`);
+  } catch (e) {
+    // already there
+  }
 
   return db;
 }
