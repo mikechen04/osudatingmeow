@@ -27,6 +27,30 @@ const GENDERS = ["male", "female", "enby", "other"];
 const BIO_MAX = 750;
 const ADMIN_OSU_ID = "9632648";
 const ADMIN_EMERGENCY_CODE = (process.env.ADMIN_EMERGENCY_CODE || "").toString().trim();
+const SLUR_RE = /\bfaggots?\b/i;
+
+function hasSlur(text) {
+  return SLUR_RE.test(String(text || ""));
+}
+
+async function createAutoReport({ me, toUserId, toUser, where, text }) {
+  const body = String(text || "").slice(0, 500);
+  const now = Date.now();
+  const ref = rtdb().ref(`reports/${ADMIN_OSU_ID}`).push();
+  await ref.set({
+    id: ref.key,
+    kind: "auto",
+    where: where || "unknown",
+    from_user_id: me ? String(me.id) : null,
+    from_osu_id: me ? me.osu_id : null,
+    from_username: me ? me.username : null,
+    to_user_id: toUserId ? String(toUserId) : null,
+    to_osu_id: toUser ? toUser.osu_id : null,
+    to_username: toUser ? toUser.username : null,
+    body,
+    created_at: now,
+  });
+}
 
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
@@ -377,6 +401,62 @@ app.post("/block", requireAuth, async (req, res) => {
   }
 });
 
+app.post("/report", requireAuth, async (req, res) => {
+  const me = res.locals.me;
+  const toUserId = (req.body.to_user_id || "").toString().trim();
+  const bodyRaw = (req.body.body || "").toString().trim();
+  const body = bodyRaw.slice(0, 500);
+
+  if (!me) return res.redirect("/");
+  if (!toUserId) {
+    req.session.flash = { type: "error", message: "invalid report target" };
+    return res.redirect("/browse");
+  }
+  if (!body || body.length < 3) {
+    req.session.flash = { type: "error", message: "report is too short" };
+    return res.redirect("/browse");
+  }
+
+  try {
+    if (hasSlur(bodyRaw)) {
+      // still save it, but mark as auto as well (so it stands out)
+      await createAutoReport({
+        me,
+        toUserId,
+        toUser: null,
+        where: "report",
+        text: bodyRaw,
+      });
+    }
+
+    const fdb = rtdb();
+    const toUserSnap = await fdb.ref(`users/${toUserId}`).get();
+    const toUser = toUserSnap.exists() ? toUserSnap.val() : null;
+
+    const now = Date.now();
+    const ref = fdb.ref(`reports/${ADMIN_OSU_ID}`).push();
+    await ref.set({
+      id: ref.key,
+      kind: "user",
+      from_user_id: String(me.id),
+      from_osu_id: me.osu_id,
+      from_username: me.username,
+      to_user_id: String(toUserId),
+      to_osu_id: toUser ? toUser.osu_id : null,
+      to_username: toUser ? toUser.username : null,
+      body,
+      created_at: now,
+    });
+
+    req.session.flash = { type: "ok", message: "report sent" };
+    return res.redirect("/browse");
+  } catch (e) {
+    console.error(e);
+    req.session.flash = { type: "error", message: "failed to send report" };
+    return res.redirect("/browse");
+  }
+});
+
 app.get("/preferences", requireAuth, async (req, res) => {
   try {
     const me = res.locals.me;
@@ -404,10 +484,37 @@ app.get("/preferences", requireAuth, async (req, res) => {
       });
     }
 
-    res.render("pages/preferences", { title: "preferences", blockedUsers });
+    let reports = [];
+    if (me && String(me.osu_id) === ADMIN_OSU_ID) {
+      const repSnap = await fdb.ref(`reports/${ADMIN_OSU_ID}`).get();
+      const repObj = repSnap.exists() ? repSnap.val() : {};
+      reports = Object.values(repObj || {});
+      reports.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+      reports = reports.slice(0, 50);
+    }
+
+    res.render("pages/preferences", { title: "preferences", blockedUsers, reports });
   } catch (e) {
     console.error(e);
-    res.render("pages/preferences", { title: "preferences", blockedUsers: [] });
+    res.render("pages/preferences", { title: "preferences", blockedUsers: [], reports: [] });
+  }
+});
+
+app.post("/admin/reports/done", requireAuth, async (req, res) => {
+  const me = res.locals.me;
+  if (!me || String(me.osu_id) !== ADMIN_OSU_ID) return res.redirect("/");
+
+  const reportId = (req.body.report_id || "").toString().trim();
+  if (!reportId) return res.redirect("/preferences");
+
+  try {
+    await rtdb().ref(`reports/${ADMIN_OSU_ID}/${reportId}`).set(null);
+    req.session.flash = { type: "ok", message: "report removed" };
+    return res.redirect("/preferences");
+  } catch (e) {
+    console.error(e);
+    req.session.flash = { type: "error", message: "failed to remove report" };
+    return res.redirect("/preferences");
   }
 });
 
@@ -497,6 +604,23 @@ app.post("/profile", requireAuth, async (req, res) => {
   const gender = GENDERS.includes(genderRaw) ? genderRaw : null;
   const discord = discordRaw.slice(0, 64);
   const displayName = displayNameRaw.slice(0, 40);
+
+  if (hasSlur(bioRaw) || hasSlur(discordRaw) || hasSlur(displayNameRaw)) {
+    // auto-report and block saving
+    try {
+      await createAutoReport({
+        me: res.locals.me,
+        toUserId: String(req.session.userId),
+        toUser: null,
+        where: "profile",
+        text: `profile text contained blocked slur`,
+      });
+    } catch (e) {
+      console.error(e);
+    }
+    req.session.flash = { type: "error", message: "blocked word detected. profile not saved" };
+    return res.redirect("/profile/edit");
+  }
 
   if (!Number.isFinite(age)) {
     req.session.flash = { type: "error", message: "age has to be a number" };
@@ -739,6 +863,22 @@ app.post("/message/send", requireAuth, requireProfile, async (req, res) => {
   if (!toUserSnap.exists()) {
     req.session.flash = { type: "error", message: "user not found" };
     return res.redirect("/browse");
+  }
+
+  if (hasSlur(bodyRaw)) {
+    try {
+      await createAutoReport({
+        me,
+        toUserId,
+        toUser: toUserSnap.val(),
+        where: "message",
+        text: bodyRaw,
+      });
+    } catch (e) {
+      console.error(e);
+    }
+    req.session.flash = { type: "error", message: "message blocked (slur)" };
+    return res.redirect(redirectTo || "/browse");
   }
 
   // block checks

@@ -43,11 +43,14 @@
   <div class="divider">✿</div>
 
   <% if (me) { %>
-    <form class="sticky-actions" action="/block" method="post">
-      <input type="hidden" name="block_user_id" data-browse-block-user-id value="" />
-      <input type="hidden" name="redirect_to" value="/browse" />
-      <button class="btn tiny danger" type="submit">block</button>
-    </form>
+    <div class="sticky-actions">
+      <button class="btn tiny ghost" type="button" data-open-report>report</button>
+      <form action="/block" method="post" class="inline">
+        <input type="hidden" name="block_user_id" data-browse-block-user-id value="" />
+        <input type="hidden" name="redirect_to" value="/browse" />
+        <button class="btn tiny danger" type="submit">block</button>
+      </form>
+    </div>
   <% } %>
 
   <% if (me && me.age && me.bio && me.gender) { %>
@@ -70,6 +73,25 @@
     </div>
   <% } %>
 </section>
+
+<div class="modal-backdrop" data-report-backdrop hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="report-title">
+    <div class="modal-top">
+      <div id="report-title" class="panel-title" style="margin: 0">report user</div>
+      <button class="linklike" type="button" data-close-report>close</button>
+    </div>
+
+    <form action="/report" method="post" class="form">
+      <input type="hidden" name="to_user_id" data-report-to-user-id value="" />
+      <div class="form-row">
+        <label for="report_body">what happened</label>
+        <textarea id="report_body" name="body" rows="4" maxlength="500" placeholder="type details..." required></textarea>
+        <div class="hint">this sends to the admin (not public)</div>
+      </div>
+      <button class="btn tiny danger" type="submit">send report</button>
+    </form>
+  </div>
+</div>
 
 <section class="card compact">
   <p class="est">tips</p>

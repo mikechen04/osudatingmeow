@@ -83,6 +83,11 @@ function renderBrowseStack() {
   const osuLinkEl = qs("[data-browse-osu-link]");
   const toUserIdEl = qs("[data-browse-to-user-id]");
   const blockUserIdEl = qs("[data-browse-block-user-id]");
+  const reportToUserIdEl = qs("[data-report-to-user-id]");
+
+  const openReportBtn = qs("[data-open-report]");
+  const closeReportBtn = qs("[data-close-report]");
+  const reportBackdrop = qs("[data-report-backdrop]");
 
   let idx = 0;
 
@@ -98,6 +103,7 @@ function renderBrowseStack() {
       if (osuLinkEl) osuLinkEl.href = "#";
       if (toUserIdEl) toUserIdEl.value = "";
       if (blockUserIdEl) blockUserIdEl.value = "";
+      if (reportToUserIdEl) reportToUserIdEl.value = "";
       if (prevBtn) prevBtn.disabled = true;
       if (nextBtn) nextBtn.disabled = true;
       return;
@@ -123,6 +129,7 @@ function renderBrowseStack() {
     if (osuLinkEl) osuLinkEl.href = `https://osu.ppy.sh/users/${u.osu_id}`;
     if (toUserIdEl) toUserIdEl.value = u.id;
     if (blockUserIdEl) blockUserIdEl.value = u.id;
+    if (reportToUserIdEl) reportToUserIdEl.value = u.id;
 
     if (prevBtn) prevBtn.disabled = idx === 0;
     if (nextBtn) nextBtn.disabled = idx === users.length - 1;
@@ -148,5 +155,29 @@ function renderBrowseStack() {
 document.addEventListener("DOMContentLoaded", () => {
   renderHomeShowcase();
   renderBrowseStack();
+
+  // report modal
+  const reportBackdrop = qs("[data-report-backdrop]");
+  const openReportBtn = qs("[data-open-report]");
+  const closeReportBtn = qs("[data-close-report]");
+  if (reportBackdrop && openReportBtn && closeReportBtn) {
+    function openModal() {
+      reportBackdrop.hidden = false;
+      const ta = qs("#report_body");
+      if (ta) ta.focus();
+    }
+    function closeModal() {
+      reportBackdrop.hidden = true;
+    }
+
+    openReportBtn.addEventListener("click", openModal);
+    closeReportBtn.addEventListener("click", closeModal);
+    reportBackdrop.addEventListener("click", e => {
+      if (e.target === reportBackdrop) closeModal();
+    });
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape" && !reportBackdrop.hidden) closeModal();
+    });
+  }
 });
 

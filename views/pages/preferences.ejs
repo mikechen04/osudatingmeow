@@ -132,6 +132,46 @@
           <button class="btn tiny danger" type="submit">run bio cleanup</button>
         </form>
       </div>
+
+      <div class="stack-item">
+        <h3>reports</h3>
+        <p>stuff ppl report (from the browse page)</p>
+
+        <% if (!reports || reports.length === 0) { %>
+          <p class="muted" style="margin-top: 0.65rem">none</p>
+        <% } else { %>
+          <div class="stack-section" style="margin-top: 0.75rem">
+            <% reports.forEach(r => { %>
+              <div class="stack-item" style="margin: 0">
+                <div style="display: flex; gap: 0.75rem; justify-content: space-between; flex-wrap: wrap">
+                  <div style="min-width: 220px">
+                    <div style="font-weight: 800">
+                      from <%= r.from_username || 'unknown' %>
+                      <% if (r.from_osu_id) { %>
+                        (<a class="softlink" href="https://osu.ppy.sh/users/<%= r.from_osu_id %>" target="_blank" rel="noreferrer">osu</a>)
+                      <% } %>
+                    </div>
+                    <div class="muted" style="margin-top: 0.1rem">
+                      about <%= r.to_username || r.to_user_id || 'unknown' %>
+                      <% if (r.to_osu_id) { %>
+                        (<a class="softlink" href="https://osu.ppy.sh/users/<%= r.to_osu_id %>" target="_blank" rel="noreferrer">osu</a>)
+                      <% } %>
+                    </div>
+                    <div class="muted" style="margin-top: 0.25rem"><%= new Date(r.created_at || Date.now()).toLocaleString() %></div>
+                  </div>
+
+                  <form action="/admin/reports/done" method="post" class="inline">
+                    <input type="hidden" name="report_id" value="<%= r.id %>" />
+                    <button class="btn tiny ghost" type="submit">mark done</button>
+                  </form>
+                </div>
+
+                <div class="msg-body" style="margin-top: 0.65rem"><%= r.body %></div>
+              </div>
+            <% }) %>
+          </div>
+        <% } %>
+      </div>
     <% } %>
   </div>
 </section>
