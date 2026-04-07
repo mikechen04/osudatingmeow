@@ -25,9 +25,15 @@ app.set("trust proxy", 1);
 const PORT = process.env.PORT || 3000;
 const GENDERS = ["male", "female", "enby", "other"];
 const BIO_MAX = 750;
-const ADMIN_OSU_ID = "9632648";
+const ADMIN_OSU_ID = "9632648"; // owner/admin inbox id for reports etc
+const ADMIN_OSU_IDS = new Set(["9632648", "12742221"]);
 const ADMIN_EMERGENCY_CODE = (process.env.ADMIN_EMERGENCY_CODE || "").toString().trim();
 const SLUR_RE = /\bfaggots?\b/i;
+
+function isAdmin(me) {
+  if (!me || !me.osu_id) return false;
+  return ADMIN_OSU_IDS.has(String(me.osu_id));
+}
 
 function parseCookies(req) {
   const out = {};
@@ -151,6 +157,7 @@ app.use(async (req, res, next) => {
     res.locals.me = null;
     res.locals.inboxUnread = null;
     res.locals.prefs = null;
+    res.locals.isAdmin = false;
 
     if (req.session && req.session.userId) {
       const userId = String(req.session.userId);
@@ -181,6 +188,7 @@ app.use(async (req, res, next) => {
           display_name: profile ? profile.display_name : null,
         };
         res.locals.prefs = prefs;
+        res.locals.isAdmin = isAdmin(res.locals.me);
 
         // count unread messages
         let unread = 0;
@@ -561,7 +569,7 @@ app.get("/preferences", requireAuth, async (req, res) => {
     }
 
     let reports = [];
-    if (me && String(me.osu_id) === ADMIN_OSU_ID) {
+    if (isAdmin(me)) {
       const repSnap = await fdb.ref(`reports/${ADMIN_OSU_ID}`).get();
       const repObj = repSnap.exists() ? repSnap.val() : {};
       reports = Object.values(repObj || {});
@@ -578,7 +586,7 @@ app.get("/preferences", requireAuth, async (req, res) => {
 
 app.post("/admin/reports/done", requireAuth, async (req, res) => {
   const me = res.locals.me;
-  if (!me || String(me.osu_id) !== ADMIN_OSU_ID) return res.redirect("/");
+  if (!isAdmin(me)) return res.redirect("/");
 
   const reportId = (req.body.report_id || "").toString().trim();
   if (!reportId) return res.redirect("/preferences");
@@ -783,7 +791,7 @@ async function cleanupLongBios() {
 
 app.post("/admin/cleanup-bios", requireAuth, async (req, res) => {
   const me = res.locals.me;
-  if (!me || String(me.osu_id) !== ADMIN_OSU_ID) return res.redirect("/");
+  if (!isAdmin(me)) return res.redirect("/");
 
   try {
     const wiped = await cleanupLongBios();
@@ -798,7 +806,7 @@ app.post("/admin/cleanup-bios", requireAuth, async (req, res) => {
 
 app.post("/admin/wipe-user", requireAuth, async (req, res) => {
   const me = res.locals.me;
-  if (!me || String(me.osu_id) !== ADMIN_OSU_ID) return res.redirect("/");
+  if (!isAdmin(me)) return res.redirect("/");
 
   const q = (req.body.q || "").toString().trim();
   if (!q) return res.redirect("/preferences");
@@ -838,8 +846,8 @@ app.post("/admin/wipe-user", requireAuth, async (req, res) => {
       return res.redirect("/preferences");
     }
 
-    if (String(targetId) === ADMIN_OSU_ID) {
-      req.session.flash = { type: "error", message: "cant wipe admin" };
+    if (ADMIN_OSU_IDS.has(String(targetId))) {
+      req.session.flash = { type: "error", message: "cant wipe an admin" };
       return res.redirect("/preferences");
     }
 
@@ -875,6 +883,52 @@ app.post("/admin/wipe-user", requireAuth, async (req, res) => {
     console.error("wipe user failed", e);
     req.session.flash = { type: "error", message: "failed to wipe user" };
     return res.redirect("/preferences");
+  }
+});
+
+app.get("/admin/view-profile", requireAuth, async (req, res) => {
+  const me = res.locals.me;
+  if (!isAdmin(me)) return res.redirect("/");
+
+  const q = String(req.query.q || "").trim();
+  if (!q) return res.redirect("/preferences");
+
+  try {
+    const fdb = rtdb();
+    const usersSnap = await fdb.ref("users").get();
+    const usersObj = usersSnap.exists() ? usersSnap.val() : {};
+
+    let targetId = null;
+    if (usersObj && usersObj[q]) {
+      targetId = String(q);
+    } else {
+      const qLower = q.toLowerCase();
+      for (const [id, u] of Object.entries(usersObj || {})) {
+        if (!u || !u.username) continue;
+        if (String(u.username).toLowerCase() === qLower) {
+          targetId = String(id);
+          break;
+        }
+      }
+    }
+
+    if (!targetId) {
+      return res.render("pages/admin_view_profile", { title: "admin view", user: null, profile: null, prefs: null });
+    }
+
+    const [profileSnap, prefsSnap] = await Promise.all([
+      fdb.ref(`profiles/${targetId}`).get(),
+      fdb.ref(`prefs/${targetId}`).get(),
+    ]);
+
+    const user = usersObj[targetId] || null;
+    const profile = profileSnap.exists() ? profileSnap.val() : null;
+    const prefs = prefsSnap.exists() ? prefsSnap.val() : null;
+
+    return res.render("pages/admin_view_profile", { title: "admin view", user, profile, prefs });
+  } catch (e) {
+    console.error(e);
+    return res.render("pages/admin_view_profile", { title: "admin view", user: null, profile: null, prefs: null });
   }
 });
 

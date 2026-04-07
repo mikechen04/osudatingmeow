@@ -1,0 +1,64 @@
+<%- include("../partials/head", { title }) %>
+
+<section class="card">
+  <p class="est">admin</p>
+  <h1 class="h1">profile lookup</h1>
+
+  <a class="btn tiny ghost" href="/preferences">back to preferences</a>
+
+  <div class="divider">✿</div>
+
+  <% if (!user) { %>
+    <p class="empty">user not found</p>
+  <% } else { %>
+    <div class="profile-block">
+      <img class="avatar big" src="<%= user.avatar_url || 'https://files.catbox.moe/evvmvg.webp' %>" alt="" />
+      <div>
+        <div class="user-name"><%= user.username %></div>
+        <div class="user-sub">
+          <% if (profile && profile.age) { %><span class="tag"><%= profile.age %>+</span><% } %>
+          <% if (profile && profile.gender) { %><span class="tag"><%= profile.gender %></span><% } %>
+          <% if (user.country_code) { %><span class="tag"><%= user.country_code %></span><% } %>
+        </div>
+        <a class="softlink" href="https://osu.ppy.sh/users/<%= user.osu_id %>" target="_blank" rel="noreferrer">open osu! profile</a>
+      </div>
+    </div>
+
+    <% if (profile && profile.bio) { %>
+      <div class="stack-item" style="margin-top: 0.85rem">
+        <h3>bio</h3>
+        <p><%= profile.bio %></p>
+      </div>
+    <% } %>
+
+    <% if (profile && profile.discord) { %>
+      <div class="stack-item" style="margin-top: 0.85rem">
+        <h3>discord</h3>
+        <p><%= profile.discord %></p>
+      </div>
+    <% } %>
+
+    <% if (prefs) { %>
+      <div class="stack-item" style="margin-top: 0.85rem">
+        <h3>looking for:</h3>
+        <%
+          const minAge = typeof prefs.min_age === "number" ? prefs.min_age : null;
+          const maxAge = typeof prefs.max_age === "number" ? prefs.max_age : null;
+          const genders = Array.isArray(prefs.genders) ? prefs.genders : [];
+
+          let ageLine = "any age";
+          if (minAge != null && maxAge != null) ageLine = `${minAge}-${maxAge}`;
+          else if (minAge != null) ageLine = `${minAge}+`;
+          else if (maxAge != null) ageLine = `up to ${maxAge}`;
+
+          let genderLine = "any gender";
+          if (genders.length) genderLine = genders.join(", ");
+        %>
+        <p><%= ageLine %> · <%= genderLine %></p>
+      </div>
+    <% } %>
+  <% } %>
+</section>
+
+<%- include("../partials/foot") %>
+

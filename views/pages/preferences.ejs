@@ -124,12 +124,24 @@
       </form>
     </div>
 
-    <% if (me && String(me.osu_id) === "9632648") { %>
+    <% if (isAdmin) { %>
       <div class="stack-item">
         <h3>admin</h3>
         <p>wipe bios longer than 750 chars</p>
         <form action="/admin/cleanup-bios" method="post" onsubmit="return confirm('run bio cleanup?')">
           <button class="btn tiny danger" type="submit">run bio cleanup</button>
+        </form>
+      </div>
+
+      <div class="stack-item">
+        <h3>profile search</h3>
+        <p>view any profile by osu id or username</p>
+        <form action="/admin/view-profile" method="get" class="form" style="margin-top: 0.75rem">
+          <div class="form-row">
+            <label for="view_q">osu id or username</label>
+            <input id="view_q" name="q" type="text" maxlength="64" placeholder="id or username" required />
+          </div>
+          <button class="btn tiny" type="submit">view profile</button>
         </form>
       </div>
 
