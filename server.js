@@ -296,8 +296,59 @@ app.post("/block", requireAuth, async (req, res) => {
   }
 });
 
-app.get("/preferences", requireAuth, (req, res) => {
-  res.render("pages/preferences", { title: "preferences" });
+app.get("/preferences", requireAuth, async (req, res) => {
+  try {
+    const me = res.locals.me;
+    const userId = me ? String(me.id) : String(req.session.userId);
+    const fdb = rtdb();
+
+    const blocksSnap = await fdb.ref(`blocks/${userId}`).get();
+    const blocksObj = blocksSnap.exists() ? blocksSnap.val() : {};
+    const blockedIds = Object.keys(blocksObj || {});
+
+    let blockedUsers = [];
+    if (blockedIds.length) {
+      // basic way: just read all users once and pick the ones we need
+      const usersSnap = await fdb.ref("users").get();
+      const usersObj = usersSnap.exists() ? usersSnap.val() : {};
+
+      blockedUsers = blockedIds.map(id => {
+        const u = usersObj && usersObj[id] ? usersObj[id] : null;
+        return {
+          id: String(id),
+          username: u && u.username ? u.username : "unknown",
+          osu_id: u && u.osu_id ? u.osu_id : id,
+          avatar_url: u && u.avatar_url ? u.avatar_url : null,
+        };
+      });
+    }
+
+    res.render("pages/preferences", { title: "preferences", blockedUsers });
+  } catch (e) {
+    console.error(e);
+    res.render("pages/preferences", { title: "preferences", blockedUsers: [] });
+  }
+});
+
+app.post("/unblock", requireAuth, async (req, res) => {
+  const me = res.locals.me;
+  const userId = me ? String(me.id) : String(req.session.userId);
+  const unblockId = (req.body.unblock_user_id || "").toString().trim();
+
+  if (!unblockId) {
+    req.session.flash = { type: "error", message: "nothing to unblock" };
+    return res.redirect("/preferences");
+  }
+
+  try {
+    await rtdb().ref(`blocks/${userId}/${String(unblockId)}`).set(null);
+    req.session.flash = { type: "ok", message: "unblocked" };
+    return res.redirect("/preferences");
+  } catch (e) {
+    console.error(e);
+    req.session.flash = { type: "error", message: "failed to unblock" };
+    return res.redirect("/preferences");
+  }
 });
 
 app.post("/preferences", requireAuth, async (req, res) => {

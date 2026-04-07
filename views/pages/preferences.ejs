@@ -83,6 +83,36 @@
     </div>
 
     <div class="stack-item">
+      <h3>block list</h3>
+      <p>ppl u blocked (they wont show on browse or inbox)</p>
+
+      <% if (!blockedUsers || blockedUsers.length === 0) { %>
+        <p class="muted" style="margin-top: 0.65rem">empty</p>
+      <% } else { %>
+        <div class="stack-section" style="margin-top: 0.75rem">
+          <% blockedUsers.forEach(u => { %>
+            <div class="stack-item" style="margin: 0">
+              <div style="display: flex; gap: 0.75rem; align-items: center; justify-content: space-between; flex-wrap: wrap">
+                <div style="display: flex; gap: 0.65rem; align-items: center">
+                  <img class="avatar smol" src="<%= u.avatar_url || 'https://files.catbox.moe/evvmvg.webp' %>" alt="" />
+                  <div>
+                    <div style="font-weight: 800"><%= u.username %></div>
+                    <a class="softlink" href="https://osu.ppy.sh/users/<%= u.osu_id %>" target="_blank" rel="noreferrer">osu!</a>
+                  </div>
+                </div>
+
+                <form action="/unblock" method="post" class="inline">
+                  <input type="hidden" name="unblock_user_id" value="<%= u.id %>" />
+                  <button class="btn tiny ghost" type="submit">unblock</button>
+                </form>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      <% } %>
+    </div>
+
+    <div class="stack-item">
       <h3>danger zone</h3>
       <p>this deletes ur profile + messages and logs u out</p>
       <form
