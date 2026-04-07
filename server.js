@@ -164,6 +164,60 @@ app.get("/api/me", (req, res) => {
   res.json({ loggedIn: !!(req.session && req.session.userId) });
 });
 
+app.get("/api/featured", requireAuth, async (req, res) => {
+  try {
+    const me = res.locals.me;
+    const userId = me ? String(me.id) : String(req.session.userId);
+    const fdb = rtdb();
+
+    const [usersSnap, profilesSnap, blocksSnap] = await Promise.all([
+      fdb.ref("users").get(),
+      fdb.ref("profiles").get(),
+      fdb.ref(`blocks/${userId}`).get(),
+    ]);
+
+    const usersObj = usersSnap.exists() ? usersSnap.val() : {};
+    const profilesObj = profilesSnap.exists() ? profilesSnap.val() : {};
+    const blocksObj = blocksSnap.exists() ? blocksSnap.val() : {};
+    const blockedIds = new Set(Object.keys(blocksObj || {}));
+
+    let list = [];
+    for (const [id, u] of Object.entries(usersObj || {})) {
+      if (!u) continue;
+      if (String(id) === String(userId)) continue;
+      if (blockedIds.has(String(id))) continue;
+      const p = profilesObj ? profilesObj[id] : null;
+      if (!p) continue;
+      if (!p.age || !p.bio || !p.gender) continue;
+
+      list.push({
+        id: String(id),
+        osu_id: u.osu_id,
+        username: u.username,
+        avatar_url: u.avatar_url || null,
+        country_code: u.country_code || null,
+        global_rank: u.global_rank || null,
+        age: p.age,
+        gender: p.gender || null,
+        bio: (p.bio || "").slice(0, 120),
+      });
+    }
+
+    // shuffle so older users dont get buried
+    for (let i = list.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = list[i];
+      list[i] = list[j];
+      list[j] = tmp;
+    }
+
+    res.json({ users: list.slice(0, 9) });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ users: [] });
+  }
+});
+
 app.get("/", (req, res) => {
   sendHomeHtml(req, res);
 });

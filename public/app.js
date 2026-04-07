@@ -17,6 +17,48 @@ function setHtml(el, html) {
   el.innerHTML = html || "";
 }
 
+async function renderHomeShowcase() {
+  const wrap = qs("[data-home-showcase]");
+  const grid = qs("[data-home-showcase-grid]");
+  if (!wrap || !grid) return;
+
+  try {
+    const res = await fetch("/api/featured", { credentials: "same-origin" });
+    if (!res.ok) return;
+    const data = await res.json();
+    const users = data && Array.isArray(data.users) ? data.users : [];
+    if (users.length === 0) return;
+
+    // show the section only if logged in + we got users
+    wrap.hidden = false;
+
+    const cards = users
+      .map(u => {
+        const rank = u.global_rank ? ` #${u.global_rank}` : "";
+        const tags = [
+          u.age ? `${u.age}+` : "",
+          u.gender ? u.gender : "",
+          u.country_code ? u.country_code : "",
+        ]
+          .filter(Boolean)
+          .join(" · ");
+
+        return `
+          <a class="showcase-card" href="/browse" title="go browse">
+            <img class="avatar smol" src="${u.avatar_url || AVATAR_PLACEHOLDER}" alt="" />
+            <div class="showcase-name">${u.username}${rank}</div>
+            <div class="muted showcase-tags">${tags}</div>
+          </a>
+        `;
+      })
+      .join("");
+
+    grid.innerHTML = cards;
+  } catch (e) {
+    // ignore
+  }
+}
+
 function renderBrowseStack() {
   const root = qs("[data-browse-root]");
   if (!root) return;
@@ -104,6 +146,7 @@ function renderBrowseStack() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  renderHomeShowcase();
   renderBrowseStack();
 });
 
