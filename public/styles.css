@@ -166,7 +166,7 @@ a {
   z-index: 1;
   max-width: var(--wrap);
   margin: 0 auto;
-  padding: 1.25rem 1.25rem 3rem;
+  padding: 1.25rem 1.25rem 2rem;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
@@ -231,7 +231,7 @@ a {
 
 /* how it works — rr: mono kicker + big title + 4 cards */
 .rr-features {
-  padding: 2rem 0 3rem;
+  padding: 2rem 0 2rem;
   border-top: 1px solid rgba(255, 255, 255, 0.65);
 }
 

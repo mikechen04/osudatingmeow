@@ -7,11 +7,10 @@ const express = require("express");
 const session = require("express-session");
 const SQLiteStore = require("connect-sqlite3")(session);
 
-const { getDb } = require("./db");
 const { osuAuthorizeUrl, osuExchangeCodeForToken, osuGetMe } = require("./osu");
+const { rtdb } = require("./firebase");
 
 const app = express();
-const db = getDb();
 
 // cloud run / reverse proxy — needed so cookies + req.ip work behind https
 app.set("trust proxy", 1);
@@ -43,25 +42,43 @@ app.use(
 );
 
 // attach user info for templates
-app.use((req, res, next) => {
-  res.locals.me = null;
-  if (req.session && req.session.userId) {
-    const user = db
-      .prepare(
-        `
-        SELECT u.*, p.age, p.bio, p.gender
-        FROM users u
-        LEFT JOIN profiles p ON p.user_id = u.id
-        WHERE u.id = ?
-      `
-      )
-      .get(req.session.userId);
-    res.locals.me = user || null;
-  }
+app.use(async (req, res, next) => {
+  try {
+    res.locals.me = null;
 
-  res.locals.flash = req.session.flash || null;
-  req.session.flash = null;
-  next();
+    if (req.session && req.session.userId) {
+      const userId = String(req.session.userId);
+      const fdb = rtdb();
+
+      const userSnap = await fdb.ref(`users/${userId}`).get();
+      const profileSnap = await fdb.ref(`profiles/${userId}`).get();
+
+      const user = userSnap.exists() ? userSnap.val() : null;
+      const profile = profileSnap.exists() ? profileSnap.val() : null;
+
+      if (user) {
+        res.locals.me = {
+          id: userId,
+          osu_id: user.osu_id,
+          username: user.username,
+          avatar_url: user.avatar_url || null,
+          country_code: user.country_code || null,
+          age: profile ? profile.age : null,
+          bio: profile ? profile.bio : null,
+          gender: profile ? profile.gender : null,
+        };
+      }
+    }
+
+    res.locals.flash = req.session.flash || null;
+    req.session.flash = null;
+    next();
+  } catch (e) {
+    console.error(e);
+    res.locals.me = null;
+    res.locals.flash = null;
+    next();
+  }
 });
 
 function requireAuth(req, res, next) {
@@ -156,33 +173,17 @@ app.get("/auth/osu/callback", async (req, res) => {
     const token = await osuExchangeCodeForToken(code);
     const me = await osuGetMe(token.access_token);
 
-    // upsert user
-    const now = new Date().toISOString();
-    const existing = db
-      .prepare("SELECT id FROM users WHERE osu_id = ?")
-      .get(me.id);
-
-    let userId = null;
-    if (!existing) {
-      const info = db
-        .prepare(
-          `
-          INSERT INTO users (osu_id, username, avatar_url, country_code, created_at)
-          VALUES (?, ?, ?, ?, ?)
-        `
-        )
-        .run(me.id, me.username, me.avatar_url || null, me.country_code || null, now);
-      userId = info.lastInsertRowid;
-    } else {
-      db.prepare(
-        `
-        UPDATE users
-        SET username = ?, avatar_url = ?, country_code = ?
-        WHERE osu_id = ?
-      `
-      ).run(me.username, me.avatar_url || null, me.country_code || null, me.id);
-      userId = existing.id;
-    }
+    // store user in rtdb using osu id as the key (stable on cloud run)
+    const userId = String(me.id);
+    const now = Date.now();
+    await rtdb().ref(`users/${userId}`).update({
+      osu_id: me.id,
+      username: me.username,
+      avatar_url: me.avatar_url || null,
+      country_code: me.country_code || null,
+      updated_at: now,
+      created_at: now,
+    });
 
     req.session.userId = userId;
 
@@ -245,52 +246,69 @@ app.post("/profile", requireAuth, (req, res) => {
     return res.redirect("/profile");
   }
 
-  const now = new Date().toISOString();
-  db.prepare(
-    `
-    INSERT INTO profiles (user_id, age, bio, gender, updated_at)
-    VALUES (?, ?, ?, ?, ?)
-    ON CONFLICT(user_id) DO UPDATE SET
-      age = excluded.age,
-      bio = excluded.bio,
-      gender = excluded.gender,
-      updated_at = excluded.updated_at
-  `
-  ).run(req.session.userId, age, bio, gender, now);
-
-  res.redirect("/browse");
+  const now = Date.now();
+  const userId = String(req.session.userId);
+  rtdb()
+    .ref(`profiles/${userId}`)
+    .set({ age, bio, gender, updated_at: now })
+    .then(() => {
+      res.redirect("/browse");
+    })
+    .catch((e) => {
+      console.error(e);
+      req.session.flash = { type: "error", message: "failed to save profile" };
+      res.redirect("/profile");
+    });
 });
 
-app.get("/browse", requireAuth, requireProfile, (req, res) => {
+app.get("/browse", requireAuth, requireProfile, async (req, res) => {
   const me = res.locals.me;
-  const users = db
-    .prepare(
-      `
-      SELECT u.id, u.osu_id, u.username, u.avatar_url, u.country_code, p.age, p.bio, p.gender, p.updated_at
-      FROM users u
-      JOIN profiles p ON p.user_id = u.id
-      WHERE u.id != ?
-      ORDER BY p.updated_at DESC
-      LIMIT 50
-    `
-    )
-    .all(me.id);
+  const fdb = rtdb();
 
-  res.render("pages/browse", { title: "browse", users });
+  const [usersSnap, profilesSnap] = await Promise.all([
+    fdb.ref("users").get(),
+    fdb.ref("profiles").get(),
+  ]);
+
+  const usersObj = usersSnap.exists() ? usersSnap.val() : {};
+  const profilesObj = profilesSnap.exists() ? profilesSnap.val() : {};
+
+  const out = [];
+  for (const [id, u] of Object.entries(usersObj || {})) {
+    if (!u) continue;
+    if (String(id) === String(me.id)) continue;
+    const p = profilesObj ? profilesObj[id] : null;
+    if (!p) continue;
+
+    out.push({
+      id,
+      osu_id: u.osu_id,
+      username: u.username,
+      avatar_url: u.avatar_url || null,
+      country_code: u.country_code || null,
+      age: p.age,
+      bio: p.bio,
+      gender: p.gender || null,
+      updated_at: p.updated_at || 0,
+    });
+  }
+
+  out.sort((a, b) => (b.updated_at || 0) - (a.updated_at || 0));
+  res.render("pages/browse", { title: "browse", users: out.slice(0, 50) });
 });
 
-app.post("/message/send", requireAuth, requireProfile, (req, res) => {
+app.post("/message/send", requireAuth, requireProfile, async (req, res) => {
   const me = res.locals.me;
-  const toUserId = parseInt(req.body.to_user_id, 10);
+  const toUserId = (req.body.to_user_id || "").toString().trim();
   const bodyRaw = (req.body.body || "").toString().trim();
   const body = bodyRaw.slice(0, 600);
 
-  if (!Number.isFinite(toUserId)) {
+  if (!toUserId) {
     req.session.flash = { type: "error", message: "invalid recipient" };
     return res.redirect("/browse");
   }
 
-  if (toUserId === me.id) {
+  if (String(toUserId) === String(me.id)) {
     req.session.flash = { type: "error", message: "u cant message urself" };
     return res.redirect("/browse");
   }
@@ -300,58 +318,53 @@ app.post("/message/send", requireAuth, requireProfile, (req, res) => {
     return res.redirect("/browse");
   }
 
-  const exists = db.prepare("SELECT id FROM users WHERE id = ?").get(toUserId);
-  if (!exists) {
+  const fdb = rtdb();
+  const toUserSnap = await fdb.ref(`users/${toUserId}`).get();
+  if (!toUserSnap.exists()) {
     req.session.flash = { type: "error", message: "user not found" };
     return res.redirect("/browse");
   }
 
-  const now = new Date().toISOString();
-  db.prepare(
-    `
-    INSERT INTO messages (from_user_id, to_user_id, body, created_at)
-    VALUES (?, ?, ?, ?)
-  `
-  ).run(me.id, toUserId, body, now);
+  const now = Date.now();
+  const msgRef = fdb.ref(`inbox/${toUserId}`).push();
+  await msgRef.set({
+    id: msgRef.key,
+    from_user_id: String(me.id),
+    from_username: me.username,
+    from_osu_id: me.osu_id,
+    from_avatar_url: me.avatar_url || null,
+    body,
+    created_at: now,
+    read_at: null,
+  });
 
-  req.session.flash = { type: "ok", message: "sent. now we wait" };
   res.redirect("/browse");
 });
 
-app.get("/inbox", requireAuth, requireProfile, (req, res) => {
+app.get("/inbox", requireAuth, requireProfile, async (req, res) => {
   const me = res.locals.me;
+  const userId = String(me.id);
+  const fdb = rtdb();
 
-  const messages = db
-    .prepare(
-      `
-      SELECT
-        m.id,
-        m.body,
-        m.created_at,
-        m.read_at,
-        u.username AS from_username,
-        u.avatar_url AS from_avatar_url,
-        u.osu_id AS from_osu_id
-      FROM messages m
-      JOIN users u ON u.id = m.from_user_id
-      WHERE m.to_user_id = ?
-      ORDER BY m.created_at DESC
-      LIMIT 100
-    `
-    )
-    .all(me.id);
+  const snap = await fdb.ref(`inbox/${userId}`).get();
+  const obj = snap.exists() ? snap.val() : {};
 
-  // mark unread as read when visiting inbox. simple.
-  const now = new Date().toISOString();
-  db.prepare(
-    `
-    UPDATE messages
-    SET read_at = ?
-    WHERE to_user_id = ? AND read_at IS NULL
-  `
-  ).run(now, me.id);
+  const messages = Object.values(obj || {});
+  messages.sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
 
-  res.render("pages/inbox", { title: "inbox", messages });
+  // mark unread as read
+  const now = Date.now();
+  const updates = {};
+  for (const m of messages) {
+    if (m && !m.read_at && m.id) {
+      updates[`inbox/${userId}/${m.id}/read_at`] = now;
+    }
+  }
+  if (Object.keys(updates).length) {
+    await fdb.ref().update(updates);
+  }
+
+  res.render("pages/inbox", { title: "inbox", messages: messages.slice(0, 50) });
 });
 
 app.listen(PORT, "0.0.0.0", () => {
