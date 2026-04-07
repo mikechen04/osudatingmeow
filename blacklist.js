@@ -10,6 +10,5 @@ module.exports = new Set([
   "31682960", // katie
   "10042684", // katie v2
   "11962818", // kendall
-  "9632648",
 ]);
 
