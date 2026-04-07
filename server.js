@@ -227,7 +227,7 @@ app.get("/profile", requireAuth, (req, res) => {
   res.render("pages/profile", { title: "profile" });
 });
 
-app.post("/profile", requireAuth, (req, res) => {
+app.post("/profile", requireAuth, async (req, res) => {
   const ageRaw = (req.body.age || "").toString().trim();
   const bioRaw = (req.body.bio || "").toString().trim();
   const genderRaw = (req.body.gender || "").toString().trim();
@@ -267,17 +267,14 @@ app.post("/profile", requireAuth, (req, res) => {
 
   const now = Date.now();
   const userId = String(req.session.userId);
-  rtdb()
-    .ref(`profiles/${userId}`)
-    .set({ age, bio, gender, updated_at: now })
-    .then(() => {
-      res.redirect("/browse");
-    })
-    .catch((e) => {
-      console.error(e);
-      req.session.flash = { type: "error", message: "failed to save profile" };
-      res.redirect("/profile");
-    });
+  try {
+    await rtdb().ref(`profiles/${userId}`).set({ age, bio, gender, updated_at: now });
+    return res.redirect("/browse");
+  } catch (e) {
+    console.error(e);
+    req.session.flash = { type: "error", message: "failed to save profile" };
+    return res.redirect("/profile");
+  }
 });
 
 app.get("/browse", requireAuth, async (req, res) => {

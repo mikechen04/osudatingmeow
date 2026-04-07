@@ -34,3 +34,6 @@
     </header>
 
     <main class="wrap">
+      <% if (flash) { %>
+        <div class="flash <%= flash.type %>"><%= flash.message %></div>
+      <% } %>
