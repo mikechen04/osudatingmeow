@@ -47,6 +47,9 @@ function badgeCountFromOsuMe(me) {
 // pastel frame on browse + profile for these ppl (match osu username or display name)
 const CUTE_TINT_NAMES = new Set(["soft kitten", "chinese foid", "risui", "klbby"]);
 
+// browse stack: these two always first (if they pass filters), then everyone else shuffled
+const BROWSE_PIN_ORDER = ["soft kitten", "chinese foid"];
+
 function normCuteName(s) {
   return String(s || "")
     .toLowerCase()
@@ -60,6 +63,36 @@ function userHasCuteTint(username, displayName) {
   if (u && CUTE_TINT_NAMES.has(u)) return true;
   if (d && CUTE_TINT_NAMES.has(d)) return true;
   return false;
+}
+
+function browseUserMatchesPinNorm(u, normPin) {
+  if (!u) return false;
+  return normCuteName(u.username) === normPin || normCuteName(u.display_name) === normPin;
+}
+
+function shuffleArrayCopy(arr) {
+  const list = arr.slice();
+  for (let i = list.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = list[i];
+    list[i] = list[j];
+    list[j] = tmp;
+  }
+  return list;
+}
+
+// pins come from baseList (after blocks) so they show even if prefs would filter them out
+function orderBrowseForDisplay(baseList, filtered) {
+  const pinned = [];
+  const usedIds = new Set();
+  for (const normPin of BROWSE_PIN_ORDER) {
+    const u = baseList.find(x => !usedIds.has(String(x.id)) && browseUserMatchesPinNorm(x, normPin));
+    if (!u) continue;
+    pinned.push(u);
+    usedIds.add(String(u.id));
+  }
+  const rest = filtered.filter(u => !usedIds.has(String(u.id)));
+  return pinned.concat(shuffleArrayCopy(rest));
 }
 
 function parseCookies(req) {
@@ -1292,6 +1325,7 @@ app.get("/browse", requireAuthOrGuest, async (req, res) => {
       id,
       osu_id: u.osu_id,
       username: u.username,
+      display_name: p.display_name || null,
       avatar_url: u.avatar_url || null,
       country_code: u.country_code || null,
       global_rank: u.global_rank || null,
@@ -1333,18 +1367,7 @@ app.get("/browse", requireAuthOrGuest, async (req, res) => {
     });
   }
 
-  filtered.sort((a, b) => (b.updated_at || 0) - (a.updated_at || 0));
-
-  // force special user to the front (even if prefs would filter them out)
-  // still respects blocks + doesnt show if it's you
-  const specialId = "9632648";
-  const isMeSpecial = me && String(me.osu_id) === specialId;
-  if (!isMeSpecial) {
-    const specialFromBase = baseList.find(u => String(u.osu_id) === specialId || String(u.id) === specialId);
-    if (specialFromBase) {
-      filtered = [specialFromBase, ...filtered.filter(u => String(u.id) !== String(specialFromBase.id))];
-    }
-  }
+  filtered = orderBrowseForDisplay(baseList, filtered);
 
   // normal users get 50. admins get everyone.
   const list = isAllAccess ? filtered : filtered.slice(0, 50);
