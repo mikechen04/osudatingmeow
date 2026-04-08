@@ -35,6 +35,19 @@ const ADMIN_SECOND_OSU_ID = "12742221"; // second admin emergency login
 const ADMIN_OSU_IDS = new Set(["9632648", "12742221"]);
 const ADMIN_EMERGENCY_CODE = (process.env.ADMIN_EMERGENCY_CODE || "").toString().trim();
 const ADMIN_EMERGENCY_CODE_FOID = (process.env.ADMIN_EMERGENCY_CODE_FOID || "").toString().trim();
+
+// whole-site freeze: see .env.example
+function envTruthy(name) {
+  const v = String(process.env[name] || "").trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
+const SITE_READ_ONLY = envTruthy("SITE_READ_ONLY");
+const READ_ONLY_ALLOW_ADMIN_POSTS = envTruthy("READ_ONLY_ALLOW_ADMIN_POSTS");
+if (SITE_READ_ONLY) {
+  console.warn(
+    "[site] SITE_READ_ONLY on — forms disabled; oauth callback blocked; use READ_ONLY_ALLOW_ADMIN_POSTS=1 if admins must post"
+  );
+}
 const SLUR_RE = /\bfaggots?\b/i;
 
 function isAdmin(me) {
@@ -423,6 +436,64 @@ app.use(async (req, res, next) => {
   }
 });
 
+// so ejs + sendHomeHtml can show a banner
+app.use((req, res, next) => {
+  res.locals.siteReadOnly = SITE_READ_ONLY;
+  next();
+});
+
+// block writes in read-only mode (oauth callback is GET but updates rtdb — block that too)
+function redirectSameOriginRefererOrHome(req, res) {
+  const ref = req.get("Referer");
+  if (ref) {
+    try {
+      const u = new URL(ref);
+      const hostRaw = req.get("x-forwarded-host") || req.get("host") || "";
+      const host = hostRaw.split(",")[0].trim();
+      if (host && u.host === host) {
+        return res.redirect(u.pathname + u.search);
+      }
+    } catch (e) {
+      // ignore bad referer
+    }
+  }
+  res.redirect("/");
+}
+
+function readOnlyBlockWrites(req, res, next) {
+  if (!SITE_READ_ONLY) return next();
+
+  const p = req.path || "";
+
+  if (req.method === "GET" && p === "/auth/osu/callback") {
+    req.session.flash = {
+      type: "warn",
+      message: "sign-in is paused — site is in read-only mode",
+    };
+    return res.redirect("/");
+  }
+
+  const m = req.method;
+  if (m !== "POST" && m !== "PUT" && m !== "PATCH" && m !== "DELETE") {
+    return next();
+  }
+
+  if (p === "/logout") return next();
+  if (p === "/emergency-login" || p === "/emergency-foid-login") return next();
+
+  if (READ_ONLY_ALLOW_ADMIN_POSTS && p.startsWith("/admin/") && res.locals.isAdmin) {
+    return next();
+  }
+
+  req.session.flash = {
+    type: "warn",
+    message: "site is read-only right now — nothing was saved",
+  };
+  return redirectSameOriginRefererOrHome(req, res);
+}
+
+app.use(readOnlyBlockWrites);
+
 function requireAuth(req, res, next) {
   if (!req.session || !req.session.userId) {
     return res.redirect("/");
@@ -488,6 +559,12 @@ function sendHomeHtml(req, res) {
     annBlock = `<div class="site-announcement" role="status"><div class="site-announcement-inner"><span class="site-announcement-label">announcement</span><p class="site-announcement-text">${escapeHtml(ann.text)}</p><span class="site-announcement-until">shows until ${escapeHtml(until)}</span></div></div>`;
   }
   html = html.replace("<!--ANNOUNCEMENT-->", annBlock);
+  let roBlock = "";
+  if (res.locals.siteReadOnly) {
+    roBlock =
+      '<div class="site-readonly-banner" role="status"><div class="site-readonly-inner">read-only mode — you can look around, but messages, edits, and new sign-ins are off</div></div>';
+  }
+  html = html.replace("<!--READONLY-->", roBlock);
   if (flash) {
     html = html.replace(
       "<!--FLASH-->",
@@ -1368,6 +1445,84 @@ app.get("/admin/view-profile", async (req, res) => {
   }
 });
 
+// all registered users — admin only (requireAdminSection)
+app.get("/admin/users", async (req, res) => {
+  const qRaw = String(req.query.q || "").trim();
+  const qLower = qRaw.toLowerCase();
+
+  try {
+    const fdb = rtdb();
+    const [usersSnap, profilesSnap, bansSnap] = await Promise.all([
+      fdb.ref("users").get(),
+      fdb.ref("profiles").get(),
+      fdb.ref("osu_bans").get(),
+    ]);
+
+    const usersObj = usersSnap.exists() ? usersSnap.val() : {};
+    const profilesObj = profilesSnap.exists() ? profilesSnap.val() : {};
+    const bansObj = bansSnap.exists() ? bansSnap.val() : {};
+
+    const allRows = [];
+    for (const [id, u] of Object.entries(usersObj || {})) {
+      if (!u) continue;
+      const idStr = String(id);
+      const p = profilesObj[idStr] || null;
+      const osuIdStr = u.osu_id != null ? String(u.osu_id) : idStr;
+      const username = u.username ? String(u.username) : "";
+      const displayName = p && p.display_name ? String(p.display_name) : "";
+
+      allRows.push({
+        id: idStr,
+        osu_id: osuIdStr,
+        username,
+        display_name: displayName || null,
+        avatar_url: u.avatar_url || null,
+        age: p && p.age != null ? p.age : null,
+        gender: p && p.gender ? String(p.gender) : null,
+        global_rank: u.global_rank != null && typeof u.global_rank === "number" ? u.global_rank : null,
+        has_profile: !!p,
+        banned_rtdb: !!(bansObj && bansObj[idStr]),
+        banned_static: OSU_ID_BLACKLIST.has(idStr),
+        is_staff: ADMIN_OSU_IDS.has(idStr),
+      });
+    }
+
+    allRows.sort((a, b) => {
+      const an = (a.username || a.id).toLowerCase();
+      const bn = (b.username || b.id).toLowerCase();
+      if (an < bn) return -1;
+      if (an > bn) return 1;
+      return a.id.localeCompare(b.id);
+    });
+
+    let rows = allRows;
+    if (qLower) {
+      rows = allRows.filter(r => {
+        const hay = `${r.id} ${r.osu_id} ${r.username} ${r.display_name || ""}`.toLowerCase();
+        return hay.includes(qLower);
+      });
+    }
+
+    return res.render("pages/admin_user_list", {
+      title: "admin · users",
+      rows,
+      q: qRaw,
+      total_all: allRows.length,
+      total_shown: rows.length,
+    });
+  } catch (e) {
+    console.error(e);
+    return res.render("pages/admin_user_list", {
+      title: "admin · users",
+      rows: [],
+      q: qRaw,
+      total_all: 0,
+      total_shown: 0,
+      load_error: "could not load users (check server logs)",
+    });
+  }
+});
+
 app.get("/browse", requireAuthOrGuest, async (req, res) => {
   const me = res.locals.me;
   const fdb = rtdb();
@@ -1716,7 +1871,8 @@ app.get("/inbox/:otherId", requireAuth, requireProfile, async (req, res) => {
       updates[`inbox/${userId}/${m.id}/read_at`] = now;
     }
   }
-  if (Object.keys(updates).length) {
+  // dont touch rtdb on open thread when site is frozen
+  if (!SITE_READ_ONLY && Object.keys(updates).length) {
     await fdb.ref().update(updates);
   }
 

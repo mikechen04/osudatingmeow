@@ -32,6 +32,13 @@
         </div>
       </div>
     <% } %>
+    <% if (typeof siteReadOnly !== "undefined" && siteReadOnly) { %>
+      <div class="site-readonly-banner" role="status">
+        <div class="site-readonly-inner">
+          read-only mode — you can look around, but messages, edits, and new sign-ins are off
+        </div>
+      </div>
+    <% } %>
     <div class="bg-stars" aria-hidden="true"></div>
 
     <div class="modal-backdrop" data-age-backdrop hidden>

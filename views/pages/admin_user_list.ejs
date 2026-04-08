@@ -1,0 +1,93 @@
+<%- include("../partials/head", { title }) %>
+
+<section class="card">
+  <p class="est">admin</p>
+  <h1 class="h1">user list</h1>
+
+  <a class="btn tiny ghost" href="/preferences">back to preferences</a>
+
+  <div class="divider">✿</div>
+
+  <form action="/admin/users" method="get" class="form" style="margin-top: 0.75rem">
+    <div class="form-row">
+      <label for="user_list_q">filter (id, username, display name)</label>
+      <input id="user_list_q" name="q" type="text" maxlength="80" value="<%= q ? q : "" %>" placeholder="leave blank for everyone" />
+    </div>
+    <button class="btn tiny" type="submit">apply filter</button>
+    <% if (q) { %>
+      <a class="btn tiny ghost" href="/admin/users" style="margin-left: 0.35rem">clear</a>
+    <% } %>
+  </form>
+
+  <% if (typeof load_error !== "undefined" && load_error) { %>
+    <p class="flash error" style="margin-top: 1rem"><%= load_error %></p>
+  <% } %>
+
+  <p class="muted" style="margin-top: 1rem">
+    showing <%= total_shown %> of <%= total_all %> users
+  </p>
+
+  <% if (rows && rows.length > 0) { %>
+    <div class="admin-user-table-wrap">
+      <table class="admin-user-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th>user</th>
+            <th>id</th>
+            <th>age</th>
+            <th>gender</th>
+            <th>rank</th>
+            <th>status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% rows.forEach(r => { %>
+            <tr>
+              <td>
+                <img class="avatar smol" src="<%= r.avatar_url || 'https://files.catbox.moe/evvmvg.webp' %>" alt="" />
+              </td>
+              <td>
+                <div style="font-weight: 800"><%= r.username || "—" %></div>
+                <% if (r.display_name) { %>
+                  <div class="muted" style="font-size: 0.82rem"><%= r.display_name %></div>
+                <% } %>
+                <% if (!r.has_profile) { %>
+                  <div class="muted" style="font-size: 0.78rem">no profile row</div>
+                <% } %>
+              </td>
+              <td class="muted" style="font-size: 0.85rem"><%= r.osu_id %></td>
+              <td><%= r.age != null ? r.age : "—" %></td>
+              <td><%= r.gender || "—" %></td>
+              <td class="muted"><%= r.global_rank != null ? "#" + r.global_rank : "—" %></td>
+              <td>
+                <% if (r.is_staff) { %>
+                  <span class="admin-user-pill admin-user-pill--staff">staff</span>
+                <% } %>
+                <% if (r.banned_static) { %>
+                  <span class="admin-user-pill admin-user-pill--ban">static ban</span>
+                <% } %>
+                <% if (r.banned_rtdb) { %>
+                  <span class="admin-user-pill admin-user-pill--ban">banned</span>
+                <% } %>
+                <% if (!r.is_staff && !r.banned_static && !r.banned_rtdb) { %>
+                  <span class="muted">ok</span>
+                <% } %>
+              </td>
+              <td>
+                <a class="btn tiny" href="/admin/view-profile?q=<%= encodeURIComponent(r.id) %>">view</a>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } else if (typeof load_error === "undefined" || !load_error) { %>
+    <p class="muted" style="margin-top: 1rem">
+      <% if (q) { %>no users match this filter<% } else { %>no users in the database yet<% } %>
+    </p>
+  <% } %>
+</section>
+
+<%- include("../partials/foot") %>
