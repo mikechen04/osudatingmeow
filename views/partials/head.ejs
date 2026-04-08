@@ -23,6 +23,15 @@
     <script src="/app.js" defer></script>
   </head>
   <body>
+    <% if (typeof siteAnnouncement !== "undefined" && siteAnnouncement && siteAnnouncement.text) { %>
+      <div class="site-announcement" role="status">
+        <div class="site-announcement-inner">
+          <span class="site-announcement-label">announcement</span>
+          <p class="site-announcement-text"><%= siteAnnouncement.text %></p>
+          <span class="site-announcement-until">shows until <%= new Date(siteAnnouncement.expires_at).toLocaleString() %></span>
+        </div>
+      </div>
+    <% } %>
     <div class="bg-stars" aria-hidden="true"></div>
 
     <div class="modal-backdrop" data-age-backdrop hidden>

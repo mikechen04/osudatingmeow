@@ -27,6 +27,9 @@ const GENDERS = ["male", "female", "enby", "other"];
 // partner must be this rank or better (lower osu global_rank number). null = any rank
 const RANK_PREF_THRESHOLDS = [1, 100, 500, 1000, 5000, 10000, 50000];
 const BIO_MAX = 750;
+const ANNOUNCE_TEXT_MAX = 2000;
+const ANNOUNCE_MIN_HOURS = 0.25;
+const ANNOUNCE_MAX_HOURS = 24 * 30; // 30 days
 const ADMIN_OSU_ID = "9632648"; // owner/admin inbox id for reports etc
 const ADMIN_SECOND_OSU_ID = "12742221"; // second admin emergency login
 const ADMIN_OSU_IDS = new Set(["9632648", "12742221"]);
@@ -393,6 +396,21 @@ app.use(async (req, res, next) => {
       }
     }
 
+    res.locals.siteAnnouncement = null;
+    try {
+      const annSnap = await rtdb().ref("site/announcement").get();
+      if (annSnap.exists()) {
+        const v = annSnap.val();
+        const annText = (v.text || "").toString().trim();
+        const exp = Number(v.expires_at);
+        if (annText && Number.isFinite(exp) && exp > Date.now()) {
+          res.locals.siteAnnouncement = { text: annText, expires_at: exp };
+        }
+      }
+    } catch (annErr) {
+      console.error(annErr);
+    }
+
     res.locals.flash = req.session.flash || null;
     req.session.flash = null;
     next();
@@ -400,6 +418,7 @@ app.use(async (req, res, next) => {
     console.error(e);
     res.locals.me = null;
     res.locals.flash = null;
+    res.locals.siteAnnouncement = null;
     next();
   }
 });
@@ -416,6 +435,15 @@ function requireAdmin(req, res, next) {
   if (!isAdmin(res.locals.me)) return res.redirect("/");
   next();
 }
+
+// lock down all /admin/... routes in one place (announcements, messages, wipe, etc.)
+function requireAdminSection(req, res, next) {
+  const p = req.path || "";
+  if (!p.startsWith("/admin/")) return next();
+  requireAuth(req, res, () => requireAdmin(req, res, next));
+}
+
+app.use(requireAdminSection);
 
 function requireAuthOrGuest(req, res, next) {
   if (req.session && req.session.userId) return next();
@@ -453,6 +481,13 @@ function sendHomeHtml(req, res) {
   if (!flash && req.query && String(req.query.banned) === "1") {
     flash = { type: "error", message: "u are blocked from using this site" };
   }
+  const ann = res.locals.siteAnnouncement;
+  let annBlock = "";
+  if (ann && ann.text) {
+    const until = new Date(ann.expires_at).toLocaleString();
+    annBlock = `<div class="site-announcement" role="status"><div class="site-announcement-inner"><span class="site-announcement-label">announcement</span><p class="site-announcement-text">${escapeHtml(ann.text)}</p><span class="site-announcement-until">shows until ${escapeHtml(until)}</span></div></div>`;
+  }
+  html = html.replace("<!--ANNOUNCEMENT-->", annBlock);
   if (flash) {
     html = html.replace(
       "<!--FLASH-->",
@@ -830,7 +865,53 @@ app.get("/preferences", requireAuth, async (req, res) => {
   }
 });
 
-app.post("/admin/reports/done", requireAuth, requireAdmin, async (req, res) => {
+app.post("/admin/announcement", async (req, res) => {
+  const me = res.locals.me;
+  const text = (req.body.announcement_text || "").toString().trim().slice(0, ANNOUNCE_TEXT_MAX);
+  const hours = parseFloat(String(req.body.duration_hours || "").trim());
+
+  if (!text) {
+    req.session.flash = { type: "error", message: "write something or use clear announcement" };
+    return res.redirect("/preferences");
+  }
+
+  if (!Number.isFinite(hours) || hours < ANNOUNCE_MIN_HOURS || hours > ANNOUNCE_MAX_HOURS) {
+    req.session.flash = {
+      type: "error",
+      message: `duration must be ${ANNOUNCE_MIN_HOURS}–${ANNOUNCE_MAX_HOURS} hours`,
+    };
+    return res.redirect("/preferences");
+  }
+
+  const now = Date.now();
+  const expires_at = now + hours * 60 * 60 * 1000;
+  try {
+    await rtdb().ref("site/announcement").set({
+      text,
+      expires_at,
+      updated_at: now,
+      updated_by: me && me.username ? me.username : null,
+    });
+    req.session.flash = { type: "ok", message: "announcement posted" };
+  } catch (e) {
+    console.error(e);
+    req.session.flash = { type: "error", message: "failed to save announcement" };
+  }
+  return res.redirect("/preferences");
+});
+
+app.post("/admin/announcement/clear", async (req, res) => {
+  try {
+    await rtdb().ref("site/announcement").set(null);
+    req.session.flash = { type: "ok", message: "announcement cleared" };
+  } catch (e) {
+    console.error(e);
+    req.session.flash = { type: "error", message: "failed to clear" };
+  }
+  return res.redirect("/preferences");
+});
+
+app.post("/admin/reports/done", async (req, res) => {
   const reportId = (req.body.report_id || "").toString().trim();
   if (!reportId) return res.redirect("/preferences");
 
@@ -1060,7 +1141,7 @@ async function cleanupLongBios() {
   return wiped;
 }
 
-app.post("/admin/cleanup-bios", requireAuth, requireAdmin, async (req, res) => {
+app.post("/admin/cleanup-bios", async (req, res) => {
   try {
     const wiped = await cleanupLongBios();
     req.session.flash = { type: "ok", message: `cleaned ${wiped} bios` };
@@ -1072,7 +1153,7 @@ app.post("/admin/cleanup-bios", requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-app.post("/admin/wipe-user", requireAuth, requireAdmin, async (req, res) => {
+app.post("/admin/wipe-user", async (req, res) => {
   const q = (req.body.q || "").toString().trim();
   if (!q) return res.redirect("/preferences");
 
@@ -1151,7 +1232,7 @@ app.post("/admin/wipe-user", requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-app.get("/admin/messages", requireAuth, requireAdmin, async (req, res) => {
+app.get("/admin/messages", async (req, res) => {
   const rawQ = String(req.query.q || "").trim();
   if (!rawQ) {
     return res.render("pages/admin_message_search", {
@@ -1185,7 +1266,7 @@ app.get("/admin/messages", requireAuth, requireAdmin, async (req, res) => {
 });
 
 // full chat between two accounts — admins only (requireAdmin before any data load)
-app.get("/admin/messages/thread", requireAuth, requireAdmin, async (req, res) => {
+app.get("/admin/messages/thread", async (req, res) => {
   const a = String(req.query.a || "").trim();
   const b = String(req.query.b || "").trim();
   const returnQ = String(req.query.return_q || "").trim();
@@ -1231,7 +1312,7 @@ app.get("/admin/messages/thread", requireAuth, requireAdmin, async (req, res) =>
   }
 });
 
-app.get("/admin/view-profile", requireAuth, requireAdmin, async (req, res) => {
+app.get("/admin/view-profile", async (req, res) => {
   const q = String(req.query.q || "").trim();
   if (!q) return res.redirect("/preferences");
 
