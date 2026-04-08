@@ -15,7 +15,8 @@ try {
 
 const { osuAuthorizeUrl, osuExchangeCodeForToken, osuGetMe } = require("./osu");
 const { rtdb } = require("./firebase");
-const OSU_ID_BLACKLIST = require("./blacklist");
+// blacklist now lives in rtdb at site/blacklist/{osuId}: true
+const OSU_ID_BLACKLIST = new Set();
 
 const app = express();
 
@@ -44,6 +45,19 @@ function envTruthy(name) {
 const SITE_READ_ONLY = envTruthy("SITE_READ_ONLY");
 if (SITE_READ_ONLY) {
   console.warn("[site] SITE_READ_ONLY on — logins ok; posting/saving blocked for non-staff");
+}
+
+async function isOsuIdBlacklisted(fdb, osuIdStr) {
+  const id = String(osuIdStr || "").trim();
+  if (!id) return false;
+
+  try {
+    const snap = await fdb.ref(`site/blacklist/${id}`).get();
+    return snap.exists();
+  } catch (e) {
+    console.error(e);
+    return false;
+  }
 }
 const SLUR_RE = /\bfaggots?\b/i;
 
@@ -358,9 +372,12 @@ app.use(async (req, res, next) => {
       const userId = String(req.session.userId);
       const fdb = rtdb();
 
-      // dynamic ban list in rtdb + static file blacklist — kick session so they cant keep browsing
-      const banSnap = await fdb.ref(`osu_bans/${userId}`).get();
-      if (banSnap.exists() || OSU_ID_BLACKLIST.has(userId)) {
+      // dynamic ban list in rtdb + static file blacklist + rtdb blacklist — kick session so they cant keep browsing
+      const [banSnap, blacklistOk] = await Promise.all([
+        fdb.ref(`osu_bans/${userId}`).get(),
+        isOsuIdBlacklisted(fdb, userId),
+      ]);
+      if (banSnap.exists() || blacklistOk) {
         clearCookie(res, "admin_override");
         clearCookie(res, "admin_override_foid");
         return req.session.destroy(() => {
@@ -760,8 +777,12 @@ app.get("/auth/osu/callback", async (req, res) => {
 
     // block blacklisted osu ids (ex: minors) + instabans from profile age attempts
     const osuIdStr = String(me.id);
-    const banSnap = await rtdb().ref(`osu_bans/${osuIdStr}`).get();
-    if (OSU_ID_BLACKLIST.has(osuIdStr) || banSnap.exists()) {
+    const fdb = rtdb();
+    const [banSnap, blacklistOk] = await Promise.all([
+      fdb.ref(`osu_bans/${osuIdStr}`).get(),
+      isOsuIdBlacklisted(fdb, osuIdStr),
+    ]);
+    if (banSnap.exists() || blacklistOk) {
       req.session.userId = null;
       req.session.flash = { type: "error", message: "u are blocked from using this site" };
       return res.redirect("/");
@@ -770,7 +791,7 @@ app.get("/auth/osu/callback", async (req, res) => {
     // store user in rtdb using osu id as the key (stable on cloud run)
     const userId = String(me.id);
     const now = Date.now();
-    await rtdb().ref(`users/${userId}`).update({
+    await fdb.ref(`users/${userId}`).update({
       osu_id: me.id,
       username: me.username,
       avatar_url: me.avatar_url || null,
@@ -1273,6 +1294,8 @@ app.post("/admin/wipe-user", async (req, res) => {
     updates[`blocks/${targetId}`] = null;
     updates[`inbox/${targetId}`] = null;
     updates[`wiped/${targetId}`] = true;
+    // ban too so they cant just log back in again
+    updates[`site/blacklist/${targetId}`] = true;
 
     // NOTE: we do NOT scan/delete messages in every inbox here anymore.
     // that gets huge and times out on bigger databases.
@@ -1474,7 +1497,7 @@ app.get("/admin/users", async (req, res) => {
         global_rank: u.global_rank != null && typeof u.global_rank === "number" ? u.global_rank : null,
         has_profile: !!p,
         banned_rtdb: !!(bansObj && bansObj[idStr]),
-        banned_static: OSU_ID_BLACKLIST.has(idStr),
+        banned_static: false,
         is_staff: ADMIN_OSU_IDS.has(idStr),
       });
     }
